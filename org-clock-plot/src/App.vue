@@ -69,7 +69,7 @@ nav a:first-of-type {
 @media (min-width: 1024px) {
   body {
     display: flex;
-    place-items: center;
+    place-items: left;
   }
 
   #app {

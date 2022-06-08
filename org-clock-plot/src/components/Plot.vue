@@ -11,7 +11,7 @@ import axios from 'axios';
   
   mounted(){
 
-      axios.get("http://127.0.0.1:5000/data").then(
+      axios.get("http://127.0.0.1:5000/data?start=2022-04-01&end=2022-05-01").then(
           response => {
               console.log(response.data);
 
@@ -23,11 +23,12 @@ import axios from 'axios';
                     .size('value')
                     .excludeRoot(true)
                     .orientation('lr')
+                    .tooltipContent((d, node) => `Time: <i>` + node.value.toFixed(2) + `</i> h<br/>Total: <i>${node.data.relTot}%</i><br/>Parent: <i>${node.data.relParent}%</i>`)
+                    .transitionDuration(400)
               .sort((a, b) => b.value - a.value)
                     .color((d, parent) => color(parent ? parent.data.name : null))
                     .data(this.plot_data)
               (this.$refs.plotbox);
-  
           }
       );
       
@@ -38,32 +39,10 @@ import axios from 'axios';
 
 <template>
   <div class="plot">
-    <h3>Plotting this and that</h3>
     <div ref="plotbox"/>
     
   </div>
 </template>
 
 <style scoped>
-h1 {
-  font-weight: 500;
-  font-size: 2.6rem;
-  top: -10px;
-}
-
-h3 {
-  font-size: 1.2rem;
-}
-
-.greetings h1,
-.greetings h3 {
-  text-align: center;
-}
-
-@media (min-width: 1024px) {
-  .greetings h1,
-  .greetings h3 {
-    text-align: left;
-  }
-}
 </style>
