@@ -60,15 +60,15 @@ def get_json_time(node):
             "name": node.name,
             "children": [
             ],
-            "relTot": f"{100*node.totalFraction:.3f}",
-            "relParent": f"{100*node.parentFraction:.3f}"
+            "relTot": f"{100*node.totalFraction:.2f}",
+            "relParent": f"{100*node.parentFraction:.2f}"
         }
         if node.localTime > 0:
             obj["children"].append({
                 "name":"self",
                 "value": node.localTime,
-                "relTot": f"{100*node.localTime / (node.totalTime/ node.totalFraction) :.3f}",
-                "relParent": f"{100*node.localTime/node.totalTime:.3f}"
+                "relTot": f"{100*node.localTime / (node.totalTime/ node.totalFraction) :.2f}",
+                "relParent": f"{100*node.localTime/node.totalTime:.2f}"
             })
         for ch in node.children:
             obj["children"].append(get_json_time(ch))
@@ -77,8 +77,8 @@ def get_json_time(node):
         return {
             "name": node.name,
             "value": node.totalTime,
-            "relTot": f"{100*node.totalFraction:.3f}",
-            "relParent": f"{100*node.parentFraction:.3f}"
+            "relTot": f"{100*node.totalFraction:.2f}",
+            "relParent": f"{100*node.parentFraction:.2f}"
         }
 
 

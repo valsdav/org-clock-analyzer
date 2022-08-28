@@ -3,15 +3,16 @@ import icicle from 'icicle-chart';
 import * as d3 from 'd3';
 import axios from 'axios';
 
-  export default {
+export default {
 
   data(){
       return {"plot_data" : {}}
   },
-  
+
+
   mounted(){
 
-      axios.get("http://127.0.0.1:5000/data?start=2022-04-01&end=2022-05-01").then(
+      axios.get("http://127.0.0.1:5000/data").then(
           response => {
               console.log(response.data);
 
@@ -23,7 +24,7 @@ import axios from 'axios';
                     .size('value')
                     .excludeRoot(true)
                     .orientation('lr')
-                    .tooltipContent((d, node) => `Time: <i>` + node.value.toFixed(2) + `</i> h<br/>Total: <i>${node.data.relTot}%</i><br/>Parent: <i>${node.data.relParent}%</i>`)
+                    .tooltipContent((d, node) => `Time: <i>` + node.value.toFixed(2) + `</i> h<br/>Parent: <i>${node.data.relParent}%</i><br/>Total: <i>${node.data.relTot}%</i><br/>`)
                     .transitionDuration(400)
               .sort((a, b) => b.value - a.value)
                     .color((d, parent) => color(parent ? parent.data.name : null))

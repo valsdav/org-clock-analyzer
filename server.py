@@ -26,7 +26,9 @@ def get_data():
         "/home/valsdav/org/ttHbb.org",
         "/home/valsdav/org/Mails.org",
         "/home/valsdav/org/Publications.org",
-        "/home/valsdav/org/Meetings.org"
+        "/home/valsdav/org/Meetings.org",
+        "/home/valsdav/org/L3_ML_production.org",
+        "/home/valsdav/org/Reading.org"
     ]
     clock_root = load_files(files, start_time, end_time)
     return get_json_time(clock_root)
