@@ -1,6 +1,5 @@
-<script setup>
+<script setup >
 import Plot from '@/components/Plot.vue';
-
 
 </script>
 

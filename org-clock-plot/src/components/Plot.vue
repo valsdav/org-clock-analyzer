@@ -9,14 +9,20 @@ export default {
       return {"plot_data" : {}}
   },
 
+    
+  computed: {
+      start() { return this.$route.query.start},
+      end() { return this.$route.query.end}
+  },
 
-  mounted(){
-
-      axios.get("http://127.0.0.1:5000/data").then(
+  mounted () {
+      let query_options = "";
+      // if(this.start != undefined && this.end!=undefined){
+      //     query_options += "?start=" + this.start + "&end=" this.end;
+      // }
+            axios.get("http://127.0.0.1:5000/data?start=2022-10-10"+query_options).then(
           response => {
               console.log(response.data);
-
-
               const color = d3.scaleOrdinal(d3.schemePaired);
               this.plot_data = response.data;
               const myChart = icicle()
@@ -46,4 +52,8 @@ export default {
 </template>
 
 <style scoped>
+
+.icicle-viz text{
+  font-size: 18px
+}
 </style>
