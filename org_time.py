@@ -26,7 +26,11 @@ def explore(parent, node, start_time=None, end_time=None):
                 if cl.start < start_time: continue
             if end_time:
                 if cl.end > end_time: continue
-            localT += (cl.end - cl.start).seconds / (60*60)
+            try:
+                localT += (cl.end - cl.start).seconds / (60*60)
+            except:
+                print(f"Error in node: {node}")
+                localT = 0
     #print("Loading: ", node.heading)
     orgnode = OrgNode(name=node.heading,
                       level=node.level,

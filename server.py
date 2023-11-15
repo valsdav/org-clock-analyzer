@@ -24,6 +24,8 @@ def get_data():
         "/home/valsdav/org/ETH.org",
         "/home/valsdav/org/CMS.org",
         "/home/valsdav/org/ttHbb.org",
+        "/home/valsdav/org/PocketCoffea.org",
+        "/home/valsdav/org/MEMFlow.org",
         "/home/valsdav/org/Mails.org",
         "/home/valsdav/org/Publications.org",
         "/home/valsdav/org/Meetings.org",
