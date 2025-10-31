@@ -765,6 +765,36 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
             </div>
         </div>
         
+        <script>
+            // Anchors for month sections aligned with chart x values
+            var MONTH_LABELS = {json.dumps(months)};
+            var MONTH_ANCHORS = {json.dumps([f"month-{m['year']}-{int(m['month']):02d}" for m in monthly_data])};
+            function goToMonth(id) {{
+                var el = document.getElementById(id);
+                if (el) {{
+                    history.replaceState(null, null, '#' + id);
+                    el.scrollIntoView({{behavior:'smooth', block:'start'}});
+                }}
+            }}
+            function bindMonth(divId) {{
+                var gd = document.getElementById(divId);
+                if (!gd || !gd.on) return;
+                gd.on('plotly_click', function(evt) {{
+                    try {{
+                        var pt = evt.points && evt.points[0];
+                        if (!pt) return;
+                        var idx = (typeof pt.pointIndex === 'number') ? pt.pointIndex : (MONTH_LABELS.indexOf(pt.x));
+                        if (idx >= 0 && idx < MONTH_ANCHORS.length) {{
+                            goToMonth(MONTH_ANCHORS[idx]);
+                        }}
+                    }} catch (e) {{}}
+                }});
+            }}
+            document.addEventListener('DOMContentLoaded', function() {{
+                ['overview-chart','areas-chart','topics-chart','subtasks-chart','heatmap-chart'].forEach(bindMonth);
+            }});
+        </script>
+        
         <div class="toggle-container">
             <span class="toggle-label">Hours</span>
             <label class="toggle-switch">
@@ -913,19 +943,14 @@ def generate_month_section(month_data):
     days_in_month = month_data.get('days_in_month', 0)
     
     if total_hours == 0:
-        # Still show a mini calendar for the month
-        try:
-            cal_snippet = generate_inline_calendar_for_period(month_data['start_date'], month_data['end_date'], files=None, cell_size=8, gap=1, enable_click=True, weekly_link_prefix_to_weekly='weekly/')
-        except Exception:
-            cal_snippet = ''
+        section_id = f"month-{month_data['year']}-{int(month_data['month']):02d}"
         return f"""
-        <div class="month-section">
+        <div class="month-section" id="{section_id}">
             <div class="month-header">
                 <div>
                     <div class="month-title">{month_name}</div>
                 </div>
             </div>
-            <div style="margin:8px 0;">{cal_snippet}</div>
             <div class="empty-month">
                 No time tracked this month
             </div>
@@ -995,14 +1020,9 @@ def generate_month_section(month_data):
     else:
         pie_html = ""
     
-    # Calendar snippet for this month
-    try:
-        cal_snippet = generate_inline_calendar_for_period(month_data['start_date'], month_data['end_date'], files=None, cell_size=8, gap=1, enable_click=True, weekly_link_prefix_to_weekly='weekly/')
-    except Exception:
-        cal_snippet = ''
-
+    section_id = f"month-{month_data['year']}-{int(month_data['month']):02d}"
     return f"""
-        <div class="month-section">
+        <div class="month-section" id="{section_id}">
             <div class="month-header">
                 <div>
                     <div class="month-title">{month_name}</div>
@@ -1012,7 +1032,6 @@ def generate_month_section(month_data):
                     <div class="month-avg">{avg_per_day:.2f}h/day avg ({days_in_month} days)</div>
                 </div>
             </div>
-            <div style="margin:8px 0;">{cal_snippet}</div>
             
             <div class="stats-grid">
                 <div class="stat-card">

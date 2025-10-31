@@ -694,6 +694,36 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
             </div>
         </div>
 
+        <script>
+            // Anchors for week sections aligned with chart x values
+            var WEEK_LABELS = {json.dumps(weeks)};
+            var WEEK_ANCHORS = {json.dumps([f"week-{w['year']}-W{int(w['week_num']):02d}" for w in weekly_data])};
+            function goToAnchor(id) {{
+                var el = document.getElementById(id);
+                if (el) {{
+                    history.replaceState(null, null, '#' + id);
+                    el.scrollIntoView({{behavior:'smooth', block:'start'}});
+                }}
+            }}
+            function bindClickToAnchor(divId) {{
+                var gd = document.getElementById(divId);
+                if (!gd || !gd.on) return;
+                gd.on('plotly_click', function(evt) {{
+                    try {{
+                        var pt = evt.points && evt.points[0];
+                        if (!pt) return;
+                        var idx = (typeof pt.pointIndex === 'number') ? pt.pointIndex : (WEEK_LABELS.indexOf(pt.x));
+                        if (idx >= 0 && idx < WEEK_ANCHORS.length) {{
+                            goToAnchor(WEEK_ANCHORS[idx]);
+                        }}
+                    }} catch (e) {{}}
+                }});
+            }}
+            document.addEventListener('DOMContentLoaded', function() {{
+                ['overview-chart','areas-chart','topics-chart','subtasks-chart','heatmap-chart'].forEach(bindClickToAnchor);
+            }});
+        </script>
+
         <div class="toggle-container">
             <span class="toggle-label">Hours</span>
             <label class="toggle-switch">
@@ -840,9 +870,10 @@ def generate_week_section(week_data):
     end_date = week_data['end_date'].strftime('%b %d, %Y')
     total_hours = week_data['total_hours']
     
+    section_id = f"week-{year}-W{int(week_num):02d}"
     if total_hours == 0:
         return f"""
-        <div class="week-section">
+        <div class="week-section" id="{section_id}">
             <div class="week-header">
                 <div>
                     <div class="week-title">Week {week_num} - {year}</div>
@@ -919,7 +950,7 @@ def generate_week_section(week_data):
         pie_html = ""
     
     return f"""
-        <div class="week-section">
+        <div class="week-section" id="{section_id}">
             <div class="week-header">
                 <div>
                     <div class="week-title">Week {week_num} - {year}</div>
