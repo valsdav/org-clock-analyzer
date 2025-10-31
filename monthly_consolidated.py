@@ -184,6 +184,15 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
     
     for idx, area in enumerate(sorted(all_areas)):
         area_hours = [m['areas'].get(area, 0) for m in monthly_data]
+        # Calculate percentages for each month
+        area_percentages = []
+        for i, m in enumerate(monthly_data):
+            total = sum(m['areas'].values())
+            if total > 0:
+                area_percentages.append((m['areas'].get(area, 0) / total) * 100)
+            else:
+                area_percentages.append(0)
+        
         color = colors[idx % len(colors)]
         fig_areas.add_trace(go.Scatter(
             name=area,
@@ -193,6 +202,7 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
             line=dict(width=3, color=color),
             marker=dict(size=8, color=color),
             hovertemplate=f'{area}: %{{y:.1f}}h<extra></extra>',
+            customdata=area_percentages,  # Store percentages for toggle
         ))
     
     fig_areas.update_layout(
@@ -227,6 +237,15 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
     # Use same color palette as areas
     for idx, topic in enumerate(top_topic_names):
         topic_hours = [m['topics'].get(topic, 0) for m in monthly_data]
+        # Calculate percentages for each month
+        topic_percentages = []
+        for i, m in enumerate(monthly_data):
+            total = sum(m['topics'].values())
+            if total > 0:
+                topic_percentages.append((m['topics'].get(topic, 0) / total) * 100)
+            else:
+                topic_percentages.append(0)
+        
         color = colors[idx % len(colors)]
         fig_topics.add_trace(go.Scatter(
             name=topic,
@@ -236,6 +255,7 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
             line=dict(width=2.5, color=color),
             marker=dict(size=7, color=color),
             hovertemplate=f'{topic}: %{{y:.1f}}h<extra></extra>',
+            customdata=topic_percentages,  # Store percentages for toggle
         ))
     
     fig_topics.update_layout(
@@ -270,6 +290,15 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
     # Use same color palette
     for idx, subtask in enumerate(top_subtask_names):
         subtask_hours = [m['subtasks'].get(subtask, 0) for m in monthly_data]
+        # Calculate percentages for each month
+        subtask_percentages = []
+        for i, m in enumerate(monthly_data):
+            total = sum(m['subtasks'].values())
+            if total > 0:
+                subtask_percentages.append((m['subtasks'].get(subtask, 0) / total) * 100)
+            else:
+                subtask_percentages.append(0)
+        
         color = colors[idx % len(colors)]
         fig_subtasks.add_trace(go.Scatter(
             name=subtask,
@@ -279,6 +308,7 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
             line=dict(width=2.5, color=color),
             marker=dict(size=7, color=color),
             hovertemplate=f'{subtask}: %{{y:.1f}}h<extra></extra>',
+            customdata=subtask_percentages,  # Store percentages for toggle
         ))
     
     fig_subtasks.update_layout(
@@ -575,6 +605,78 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
             opacity: 0.8;
         }}
         
+        /* Toggle Switch Styles */
+        .toggle-container {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }}
+        
+        .toggle-label {{
+            font-size: 1em;
+            color: #333;
+            font-weight: 500;
+        }}
+        
+        .toggle-switch {{
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }}
+        
+        .toggle-switch input {{
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }}
+        
+        .slider {{
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #667eea;
+            transition: 0.4s;
+            border-radius: 30px;
+        }}
+        
+        .slider:before {{
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+        }}
+        
+        input:checked + .slider {{
+            background-color: #f093fb;
+        }}
+        
+        input:checked + .slider:before {{
+            transform: translateX(30px);
+        }}
+        
+        .slider:hover {{
+            box-shadow: 0 0 8px rgba(102, 126, 234, 0.5);
+        }}
+        
+        input:checked + .slider:hover {{
+            box-shadow: 0 0 8px rgba(240, 147, 251, 0.5);
+        }}
+        
         @media print {{
             body {{
                 background: white;
@@ -629,6 +731,15 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
             </div>
         </div>
         
+        <div class="toggle-container">
+            <span class="toggle-label">Hours</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="percentageToggle" onchange="togglePercentage()">
+                <span class="slider"></span>
+            </label>
+            <span class="toggle-label">Percentages</span>
+        </div>
+        
         <div class="section">
             <div class="chart-container">
                 {overview_html}
@@ -671,6 +782,87 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
             <p>Org Clock Analyzer - Consolidated Monthly Reports</p>
         </div>
     </div>
+    
+    <script>
+    function togglePercentage() {{
+        const isPercentage = document.getElementById('percentageToggle').checked;
+        
+        // Toggle areas chart
+        const areasDiv = document.getElementById('areas-chart');
+        if (areasDiv) {{
+            const areasData = areasDiv.data;
+            const areasLayout = areasDiv.layout;
+            
+            areasData.forEach(trace => {{
+                // Store original hours on first toggle
+                if (!trace.originalY) {{
+                    trace.originalY = [...trace.y];
+                }}
+                
+                if (isPercentage && trace.customdata) {{
+                    trace.y = trace.customdata; // Use percentage data
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}%<extra></extra>';
+                }} else {{
+                    trace.y = trace.originalY; // Use hours data
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}h<extra></extra>';
+                }}
+            }});
+            
+            areasLayout.yaxis.title.text = isPercentage ? 'Percentage (%)' : 'Hours';
+            Plotly.react(areasDiv, areasData, areasLayout);
+        }}
+        
+        // Toggle topics chart
+        const topicsDiv = document.getElementById('topics-chart');
+        if (topicsDiv) {{
+            const topicsData = topicsDiv.data;
+            const topicsLayout = topicsDiv.layout;
+            
+            topicsData.forEach(trace => {{
+                // Store original hours on first toggle
+                if (!trace.originalY) {{
+                    trace.originalY = [...trace.y];
+                }}
+                
+                if (isPercentage && trace.customdata) {{
+                    trace.y = trace.customdata;
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}%<extra></extra>';
+                }} else {{
+                    trace.y = trace.originalY;
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}h<extra></extra>';
+                }}
+            }});
+            
+            topicsLayout.yaxis.title.text = isPercentage ? 'Percentage (%)' : 'Hours';
+            Plotly.react(topicsDiv, topicsData, topicsLayout);
+        }}
+        
+        // Toggle subtasks chart
+        const subtasksDiv = document.getElementById('subtasks-chart');
+        if (subtasksDiv) {{
+            const subtasksData = subtasksDiv.data;
+            const subtasksLayout = subtasksDiv.layout;
+            
+            subtasksData.forEach(trace => {{
+                // Store original hours on first toggle
+                if (!trace.originalY) {{
+                    trace.originalY = [...trace.y];
+                }}
+                
+                if (isPercentage && trace.customdata) {{
+                    trace.y = trace.customdata;
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}%<extra></extra>';
+                }} else {{
+                    trace.y = trace.originalY;
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}h<extra></extra>';
+                }}
+            }});
+            
+            subtasksLayout.yaxis.title.text = isPercentage ? 'Percentage (%)' : 'Hours';
+            Plotly.react(subtasksDiv, subtasksData, subtasksLayout);
+        }}
+    }}
+    </script>
 </body>
 </html>
 """
@@ -742,18 +934,24 @@ def generate_month_section(month_data):
     
     # Create pie chart for this month's areas
     if areas:
-        fig = go.Figure(data=[go.Pie(
-            labels=list(areas.keys()),
-            values=list(areas.values()),
-            hole=0.3,
-        )])
-        fig.update_layout(
-            title=f"{month_name} - Time Distribution by Area",
-            height=400,
-            margin=dict(t=50, b=50, l=50, r=50),
-            showlegend=True,
-        )
-        pie_html = fig.to_html(include_plotlyjs=False, div_id=f'pie-month-{month_data["year"]}-{month_data["month"]}')
+        # Filter out areas with 0 hours
+        filtered_areas = {k: v for k, v in areas.items() if v > 0}
+        
+        if filtered_areas:
+            fig = go.Figure(data=[go.Pie(
+                labels=list(filtered_areas.keys()),
+                values=list(filtered_areas.values()),
+                hole=0.3,
+            )])
+            fig.update_layout(
+                title=f"{month_name} - Time Distribution by Area",
+                height=400,
+                margin=dict(t=50, b=50, l=50, r=50),
+                showlegend=True,
+            )
+            pie_html = fig.to_html(include_plotlyjs=False, div_id=f'pie-month-{month_data["year"]}-{month_data["month"]}')
+        else:
+            pie_html = ""
     else:
         pie_html = ""
     

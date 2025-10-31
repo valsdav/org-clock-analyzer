@@ -218,6 +218,63 @@ def generate_monthly_report(year=None, month=None, output_dir="reports/monthly")
     print(f"\nMonthly report generated in: {output_dir}")
 
 
+def generate_monthly_reports(n=12, output_dir="reports/monthly"):
+    """Generate individual monthly reports for the last N months."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f"\n{'='*80}")
+    print(f"GENERATING LAST {n} MONTHLY REPORTS")
+    print(f"{'='*80}\n")
+    
+    today = datetime.today()
+    
+    for i in range(n):
+        # Calculate month dates (going backwards)
+        # Start from the first day of the current month, then go back
+        year = today.year
+        month = today.month
+        
+        # Go back i months
+        for _ in range(n - 1 - i):
+            month -= 1
+            if month < 1:
+                month = 12
+                year -= 1
+        
+        start_date = datetime(year, month, 1)
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
+        
+        period_name = f"{start_date.strftime('%Y-%m')}"
+        month_dir = output_dir / period_name
+        month_dir.mkdir(parents=True, exist_ok=True)
+        
+        print(f"\nGenerating {start_date.strftime('%B %Y')} ({period_name})...")
+        
+        # Load data
+        clock_root = org_time.load_files(ORG_FILES, start_date, end_date)
+        
+        if clock_root.totalTime == 0:
+            print(f"  No data for this month")
+            continue
+        
+        # Analyze
+        analyzer = TimeAnalyzer(clock_root)
+        
+        # Generate individual report
+        report_gen = ReportGenerator(analyzer, period_name, start_date, end_date)
+        report_gen.generate_full_report(month_dir)
+        
+        print(f"  ✓ Report saved to: {month_dir}")
+    
+    print(f"\n{'='*80}")
+    print(f"Monthly reports generated in: {output_dir}")
+    print(f"{'='*80}\n")
+
+
 def generate_yearly_report(year=None, output_dir="reports/yearly"):
     """Generate a yearly report with monthly breakdown."""
     if year is None:

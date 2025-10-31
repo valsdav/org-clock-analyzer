@@ -161,6 +161,15 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
     
     for idx, area in enumerate(sorted(all_areas)):
         area_hours = [w['areas'].get(area, 0) for w in weekly_data]
+        # Calculate percentages for each week
+        area_percentages = []
+        for i, w in enumerate(weekly_data):
+            total = sum(w['areas'].values())
+            if total > 0:
+                area_percentages.append((w['areas'].get(area, 0) / total) * 100)
+            else:
+                area_percentages.append(0)
+        
         color = colors[idx % len(colors)]
         fig_areas.add_trace(go.Scatter(
             name=area,
@@ -170,6 +179,7 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
             line=dict(width=3, color=color),
             marker=dict(size=8, color=color),
             hovertemplate=f'{area}: %{{y:.1f}}h<extra></extra>',
+            customdata=area_percentages,  # Store percentages for toggle
         ))
     
     fig_areas.update_layout(
@@ -199,6 +209,15 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
     fig_topics = go.Figure()
     for idx, topic in enumerate(top_topic_names):
         topic_hours = [w['topics'].get(topic, 0) for w in weekly_data]
+        # Calculate percentages for each week
+        topic_percentages = []
+        for i, w in enumerate(weekly_data):
+            total = sum(w['topics'].values())
+            if total > 0:
+                topic_percentages.append((w['topics'].get(topic, 0) / total) * 100)
+            else:
+                topic_percentages.append(0)
+        
         color = colors[idx % len(colors)]
         fig_topics.add_trace(go.Scatter(
             name=topic,
@@ -208,6 +227,7 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
             line=dict(width=2.5, color=color),
             marker=dict(size=7, color=color),
             hovertemplate=f'{topic}: %{{y:.1f}}h<extra></extra>',
+            customdata=topic_percentages,  # Store percentages for toggle
         ))
     fig_topics.update_layout(
         title=f"Top 15 Topics - Weekly Trends",
@@ -236,6 +256,15 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
     fig_subtasks = go.Figure()
     for idx, subtask in enumerate(top_subtask_names):
         subtask_hours = [w['subtasks'].get(subtask, 0) for w in weekly_data]
+        # Calculate percentages for each week
+        subtask_percentages = []
+        for i, w in enumerate(weekly_data):
+            total = sum(w['subtasks'].values())
+            if total > 0:
+                subtask_percentages.append((w['subtasks'].get(subtask, 0) / total) * 100)
+            else:
+                subtask_percentages.append(0)
+        
         color = colors[idx % len(colors)]
         fig_subtasks.add_trace(go.Scatter(
             name=subtask,
@@ -245,6 +274,7 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
             line=dict(width=2.5, color=color),
             marker=dict(size=7, color=color),
             hovertemplate=f'{subtask}: %{{y:.1f}}h<extra></extra>',
+            customdata=subtask_percentages,  # Store percentages for toggle
         ))
     fig_subtasks.update_layout(
         title=f"Top 15 Subtasks - Weekly Trends",
@@ -345,6 +375,68 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
                 color: #333;
                 font-size: 0.9em;
                 margin-left: auto;
+            }}
+        
+            .toggle-container {{
+                background: white;
+                border-radius: 12px;
+                padding: 15px 30px;
+                margin-bottom: 20px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 15px;
+            }}
+            
+            .toggle-label {{
+                font-weight: 500;
+                color: #333;
+            }}
+            
+            .toggle-switch {{
+                position: relative;
+                display: inline-block;
+                width: 60px;
+                height: 30px;
+            }}
+            
+            .toggle-switch input {{
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }}
+            
+            .slider {{
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #ccc;
+                transition: 0.4s;
+                border-radius: 30px;
+            }}
+            
+            .slider:before {{
+                position: absolute;
+                content: "";
+                height: 22px;
+                width: 22px;
+                left: 4px;
+                bottom: 4px;
+                background-color: white;
+                transition: 0.4s;
+                border-radius: 50%;
+            }}
+            
+            input:checked + .slider {{
+                background-color: #667eea;
+            }}
+            
+            input:checked + .slider:before {{
+                transform: translateX(30px);
             }}
         
         .header {{
@@ -567,6 +659,15 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
             </div>
         </div>
         
+        <div class="toggle-container">
+            <span class="toggle-label">Hours</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="percentageToggle" onchange="togglePercentage()">
+                <span class="slider"></span>
+            </label>
+            <span class="toggle-label">Percentages</span>
+        </div>
+        
         <div class="section">
             <div class="chart-container">
                 {overview_html}
@@ -586,16 +687,7 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
         </div>
         
         <div class="section">
-            <div class="chart-container">
-                {subtasks_html}
-            </div>
-        </div>
-        
-        <div class="section">
-            <div class="chart-container">
-                {heatmap_html}
-            </div>
-        </div>
+```
 """
     
     # Generate individual week sections
@@ -609,6 +701,87 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
             <p>Org Clock Analyzer - Consolidated Weekly Reports</p>
         </div>
     </div>
+    
+    <script>
+    function togglePercentage() {{
+        const isPercentage = document.getElementById('percentageToggle').checked;
+        
+        // Toggle areas chart
+        const areasDiv = document.getElementById('areas-chart');
+        if (areasDiv) {{
+            const areasData = areasDiv.data;
+            const areasLayout = areasDiv.layout;
+            
+            areasData.forEach(trace => {{
+                // Store original hours on first toggle
+                if (!trace.originalY) {{
+                    trace.originalY = [...trace.y];
+                }}
+                
+                if (isPercentage && trace.customdata) {{
+                    trace.y = trace.customdata; // Use percentage data
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}%<extra></extra>';
+                }} else {{
+                    trace.y = trace.originalY; // Use hours data
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}h<extra></extra>';
+                }}
+            }});
+            
+            areasLayout.yaxis.title.text = isPercentage ? 'Percentage (%)' : 'Hours';
+            Plotly.react(areasDiv, areasData, areasLayout);
+        }}
+        
+        // Toggle topics chart
+        const topicsDiv = document.getElementById('topics-chart');
+        if (topicsDiv) {{
+            const topicsData = topicsDiv.data;
+            const topicsLayout = topicsDiv.layout;
+            
+            topicsData.forEach(trace => {{
+                // Store original hours on first toggle
+                if (!trace.originalY) {{
+                    trace.originalY = [...trace.y];
+                }}
+                
+                if (isPercentage && trace.customdata) {{
+                    trace.y = trace.customdata;
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}%<extra></extra>';
+                }} else {{
+                    trace.y = trace.originalY;
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}h<extra></extra>';
+                }}
+            }});
+            
+            topicsLayout.yaxis.title.text = isPercentage ? 'Percentage (%)' : 'Hours';
+            Plotly.react(topicsDiv, topicsData, topicsLayout);
+        }}
+        
+        // Toggle subtasks chart
+        const subtasksDiv = document.getElementById('subtasks-chart');
+        if (subtasksDiv) {{
+            const subtasksData = subtasksDiv.data;
+            const subtasksLayout = subtasksDiv.layout;
+            
+            subtasksData.forEach(trace => {{
+                // Store original hours on first toggle
+                if (!trace.originalY) {{
+                    trace.originalY = [...trace.y];
+                }}
+                
+                if (isPercentage && trace.customdata) {{
+                    trace.y = trace.customdata;
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}%<extra></extra>';
+                }} else {{
+                    trace.y = trace.originalY;
+                    trace.hovertemplate = trace.name + ': %{{y:.1f}}h<extra></extra>';
+                }}
+            }});
+            
+            subtasksLayout.yaxis.title.text = isPercentage ? 'Percentage (%)' : 'Hours';
+            Plotly.react(subtasksDiv, subtasksData, subtasksLayout);
+        }}
+    }}
+    </script>
 </body>
 </html>
 """
@@ -682,18 +855,24 @@ def generate_week_section(week_data):
     
     # Create pie chart for this week's areas
     if areas:
-        fig = go.Figure(data=[go.Pie(
-            labels=list(areas.keys()),
-            values=list(areas.values()),
-            hole=0.3,
-        )])
-        fig.update_layout(
-            title=f"Week {week_num} - Time Distribution by Area",
-            height=400,
-            margin=dict(t=50, b=50, l=50, r=50),
-            showlegend=True,
-        )
-        pie_html = fig.to_html(include_plotlyjs=False, div_id=f'pie-week-{week_num}')
+        # Filter out areas with 0 hours
+        filtered_areas = {k: v for k, v in areas.items() if v > 0}
+        
+        if filtered_areas:
+            fig = go.Figure(data=[go.Pie(
+                labels=list(filtered_areas.keys()),
+                values=list(filtered_areas.values()),
+                hole=0.3,
+            )])
+            fig.update_layout(
+                title=f"Week {week_num} - Time Distribution by Area",
+                height=400,
+                margin=dict(t=50, b=50, l=50, r=50),
+                showlegend=True,
+            )
+            pie_html = fig.to_html(include_plotlyjs=False, div_id=f'pie-week-{week_num}')
+        else:
+            pie_html = ""
     else:
         pie_html = ""
     

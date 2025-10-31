@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from generate_reports import (
     generate_weekly_reports,
     generate_monthly_report,
+    generate_monthly_reports,
     generate_yearly_report
 )
 from generate_index import generate_index_html
@@ -31,8 +32,8 @@ def main():
     print("This will generate the following reports:")
     print("  1. Last 4 individual weekly reports")
     print("  2. Consolidated weekly view (last 4 weeks)")
-    print("  3. Current month report")
-    print("  4. Consolidated monthly view (last 6 months)")
+    print("  3. Last 12 individual monthly reports")
+    print("  4. Consolidated monthly view (last 12 months)")
     print("  5. Current year report")
     print()
     
@@ -64,11 +65,11 @@ def main():
         print(f"✗ Error: {e}")
     
     print("\n" + "="*70)
-    print("STEP 3/6: Generating current month report...")
+    print("STEP 3/6: Generating individual monthly reports...")
     print("="*70)
     try:
-        generate_monthly_report(output_dir="reports/monthly")
-        print("✓ Monthly report complete!")
+        generate_monthly_reports(n=12, output_dir="reports/monthly")
+        print("✓ Monthly reports complete!")
     except Exception as e:
         print(f"✗ Error: {e}")
     
@@ -76,7 +77,7 @@ def main():
     print("STEP 4/6: Generating consolidated monthly view...")
     print("="*70)
     try:
-        generate_consolidated_monthly_report(n_months=6, output_file="reports/monthly_consolidated.html")
+        generate_consolidated_monthly_report(n_months=12, output_file="reports/monthly_consolidated.html")
         print("✓ Consolidated monthly report complete!")
     except Exception as e:
         print(f"✗ Error: {e}")
