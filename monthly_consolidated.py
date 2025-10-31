@@ -171,6 +171,32 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
     
     overview_html = fig_overview.to_html(include_plotlyjs='cdn', div_id='overview-chart')
     
+    # Build calendar heatmap snippet spanning the period of data in this consolidated report
+    try:
+        if monthly_data:
+            period_start = min(m['start_date'] for m in monthly_data)
+            period_end = max(m['end_date'] for m in monthly_data)
+        else:
+            # Fallback to last 6 months
+            today = datetime.today().replace(day=1)
+            period_end = today + relativedelta(months=1)
+            period_start = today - relativedelta(months=max(1, (n_months or 6)))
+        cal_id = f"mc_{period_start.strftime('%Y%m%d')}_{period_end.strftime('%Y%m%d')}"
+        consolidated_calendar_html = generate_inline_calendar_for_period(
+            period_start,
+            period_end,
+            files=None,
+            cell_size=8,
+            gap=1,
+            enable_click=True,
+            id_suffix=cal_id,
+            weekly_link_prefix_to_weekly='weekly/',
+            include_month_summary=True,
+            monthly_link_prefix_to_monthly='monthly/'
+        )
+    except Exception:
+        consolidated_calendar_html = ''
+
     # Create line chart by macro area
     all_areas = set()
     for m in monthly_data:
@@ -729,6 +755,13 @@ def generate_monthly_html(monthly_data, n_months, year=None, output_file=None):
 """
     
     html += f"""
+            </div>
+        </div>
+        
+        <!-- Calendar Heatmap over Period -->
+        <div class="section">
+            <div class="chart-container">
+                {consolidated_calendar_html}
             </div>
         </div>
         

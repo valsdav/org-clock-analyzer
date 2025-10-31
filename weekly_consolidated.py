@@ -14,6 +14,7 @@ import pandas as pd
 
 import org_time
 from reports import TimeAnalyzer, ORG_FILES
+from calendar_heatmap import generate_inline_calendar_for_period
 
 
 def generate_consolidated_weekly_report(n_weeks=4, output_file="reports/weekly_consolidated.html"):
@@ -313,6 +314,32 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
     )
     heatmap_html = fig_heatmap.to_html(include_plotlyjs=False, div_id='heatmap-chart')
     
+    # Build calendar heatmap snippet spanning the period of data
+    try:
+        if weekly_data:
+            period_start = min(w['start_date'] for w in weekly_data)
+            period_end = max(w['end_date'] for w in weekly_data)
+        else:
+            # Fallback to last 4 weeks
+            today = datetime.today()
+            period_end = today
+            period_start = today - timedelta(days=28)
+        cal_id = f"wc_{period_start.strftime('%Y%m%d')}_{period_end.strftime('%Y%m%d')}"
+        calendar_html = generate_inline_calendar_for_period(
+            period_start,
+            period_end,
+            files=None,
+            cell_size=8,
+            gap=1,
+            enable_click=True,
+            id_suffix=cal_id,
+            weekly_link_prefix_to_weekly='weekly/',
+            include_month_summary=True,
+            monthly_link_prefix_to_monthly='monthly/'
+        )
+    except Exception:
+        calendar_html = ''
+
     # Start HTML
     # Calculate summary statistics
     total_all_weeks = sum(total_hours)
@@ -659,6 +686,14 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
             </div>
         </div>
         
+        <!-- Calendar Heatmap over Period -->
+        <div class="section">
+            <div class="section-title">Calendar Heatmap</div>
+            <div class="chart-container">
+                {calendar_html}
+            </div>
+        </div>
+
         <div class="toggle-container">
             <span class="toggle-label">Hours</span>
             <label class="toggle-switch">
