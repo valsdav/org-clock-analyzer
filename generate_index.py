@@ -437,6 +437,72 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             </div>
         </div>
 """
+    # Add top big calendar widget covering all available months in reports
+    try:
+        # Determine range from monthly reports if available; fallback to yearly or weekly
+        start = None
+        end = None
+        if structure['monthly']:
+            names = [r['name'] for r in structure['monthly']]
+            earliest = min(names)
+            latest = max(names)
+            y1, m1 = map(int, earliest.split('-'))
+            y2, m2 = map(int, latest.split('-'))
+            start = _dt(y1, m1, 1)
+            end = _dt(y2 + (1 if m2 == 12 else 0), 1 if m2 == 12 else m2 + 1, 1)
+        elif structure['yearly']:
+            years = []
+            for r in structure['yearly']:
+                nm = r['name']
+                if nm.lower().startswith('year_'):
+                    years.append(int(nm.split('_', 1)[1]))
+                else:
+                    try:
+                        years.append(int(nm))
+                    except Exception:
+                        pass
+            if years:
+                y1 = min(years)
+                y2 = max(years)
+                start = _dt(y1, 1, 1)
+                end = _dt(y2 + 1, 1, 1)
+        elif structure['weekly']:
+            years = []
+            for r in structure['weekly']:
+                nm = r['name']  # Week_NN_YYYY
+                try:
+                    parts = nm.split('_')
+                    years.append(int(parts[-1]))
+                except Exception:
+                    pass
+            if years:
+                y1 = min(years)
+                y2 = max(years)
+                start = _dt(y1, 1, 1)
+                end = _dt(y2 + 1, 1, 1)
+        # If range found, render calendar
+        if start and end:
+            try:
+                cal_snippet_global = generate_inline_calendar_for_period(
+                    start, end,
+                    files=None,
+                    cell_size=12, gap=2,
+                    enable_click=True,
+                    id_suffix='global',
+                    weekly_link_prefix_to_weekly='weekly/',
+                    include_month_summary=True,
+                    monthly_link_prefix_to_monthly='monthly/'
+                )
+                html_content += f"""
+        <div class="section">
+            <h2 class="section-title">🗓️ Activity Calendar (All Years)</h2>
+            <div style="overflow-x:auto;">{cal_snippet_global}</div>
+        </div>
+"""
+            except Exception:
+                pass
+    except Exception:
+        pass
     
     # Check for consolidated weekly report
     consolidated_weekly = reports_path / "weekly_consolidated.html"
