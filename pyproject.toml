@@ -1,0 +1,13 @@
+[project]
+name = "org-clock-analyzer"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.10.7",
+    "orgparse>=0.4.20251020",
+    "pandas>=2.3.3",
+    "plotly>=6.3.1",
+    "python-dateutil>=2.9.0.post0",
+]
