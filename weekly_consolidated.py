@@ -686,6 +686,13 @@ def generate_weekly_html(weekly_data, n_weeks, output_file):
             </div>
         </div>
         
+        <!-- Top 15 Topics - Weekly Heatmap -->
+        <div class="section">
+            <div class="chart-container">
+                {heatmap_html}
+            </div>
+        </div>
+
         <div class="section">
 ```
 """

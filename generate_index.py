@@ -410,6 +410,25 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
         .collapsible-body {{
             padding: 15px;
         }}
+
+        /* Foldable year blocks */
+        details.year-block {{
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            background: #ffffff;
+            margin: 12px 0 16px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }}
+        details.year-block > summary {{
+            cursor: pointer;
+            padding: 12px 16px;
+            font-weight: 700;
+            color: #333;
+            list-style: none;
+        }}
+        details.year-block > summary::-webkit-details-marker {{ display: none; }}
+        details.year-block > summary::after {{ content: '▾'; float: right; opacity: 0.7; transition: transform 0.2s; }}
+        details.year-block[open] > summary::after {{ transform: rotate(180deg); }}
         
         .file-link {{
             display: block;
@@ -576,8 +595,96 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
     except Exception as e:
         print(f"Warning: Failed to generate calendar section: {e}")
     
+    # Yearly Reports Section (adds a clear button per year)
+    if structure['yearly']:
+        html_content += """
+        <div class="section">
+            <h2 class="section-title">📆 Yearly Reports</h2>
+            <div class="report-grid">
+        """
+        for report in sorted(structure['yearly'], key=lambda r: r['name'], reverse=True):
+            # Identify dashboard file for the year
+            dashboard_file = None
+            other_html = []
+            for file in report['files']['html']:
+                if 'dashboard' in file['name'].lower():
+                    dashboard_file = file
+                else:
+                    other_html.append(file)
+            # Pretty label
+            label = report['name']
+            try:
+                if label.lower().startswith('year_'):
+                    yr = int(label.split('_', 1)[1])
+                    label = f"Year {yr}"
+            except Exception:
+                pass
+            html_content += f"""
+            <div class=\"report-card\">
+                <div class=\"report-card-title\">{label}</div>
+            """
+            if dashboard_file:
+                html_content += f"""
+                <a href=\"{dashboard_file['path']}\" class=\"dashboard-btn\" target=\"_blank\">
+                    <span class=\"icon\">📊</span>View Yearly Report
+                </a>
+                """
+            # Collapsible for other visuals
+            if other_html:
+                html_content += """
+                <div class=\"collapsible\">
+                    <div class=\"collapsible-header\" onclick=\"toggleCollapsible(this)\">
+                        <span>📈 Other Visualizations</span>
+                        <span class=\"toggle\">▼</span>
+                    </div>
+                    <div class=\"collapsible-content\">
+                        <div class=\"collapsible-body\">
+                """
+                for file in other_html:
+                    html_content += f"""
+                            <a href=\"{file['path']}\" class=\"file-link file-link-html\" target=\"_blank\"> 
+                                <span class=\"icon\">📊</span>{file['name']}
+                                <span class=\"file-meta\">{format_file_size(file['size'])}</span>
+                            </a>
+                    """
+                html_content += """
+                        </div>
+                    </div>
+                </div>
+                """
+            # Collapsible for CSVs
+            if report['files']['csv']:
+                html_content += """
+                <div class=\"collapsible\">
+                    <div class=\"collapsible-header\" onclick=\"toggleCollapsible(this)\">
+                        <span>📄 Data Exports</span>
+                        <span class=\"toggle\">▼</span>
+                    </div>
+                    <div class=\"collapsible-content\">
+                        <div class=\"collapsible-body\">
+                """
+                for file in report['files']['csv']:
+                    html_content += f"""
+                            <a href=\"{file['path']}\" class=\"file-link file-link-csv\" download>
+                                <span class=\"icon\">📋</span>{file['name']}
+                                <span class=\"file-meta\">{format_file_size(file['size'])}</span>
+                            </a>
+                    """
+                html_content += """
+                        </div>
+                    </div>
+                </div>
+                """
+            html_content += """
+            </div>
+            """
+        html_content += """
+            </div>
+        </div>
+        """
+    
     # Weekly Reports Section (grouped by year with month tabs)
-    # Detect consolidated pages
+    # Detect consolidated pages (recent + per year/month)
     consolidated_weekly_global = reports_path / "weekly_consolidated.html"
     consolidated_weekly_year = {y: (reports_path / f"weekly_consolidated_{y}.html") for y in range(1900, 3000)}
     consolidated_weekly_month = lambda y,m: (reports_path / f"weekly_consolidated_{y}-{m:02d}.html")
@@ -587,7 +694,7 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
         <div class="section">
             <h2 class="section-title">📅 Weekly Reports</h2>
 """
-        # Global weekly comparison
+        # Global weekly comparison (recent)
         if consolidated_weekly_global.exists():
             html_content += f"""
             <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px;">
@@ -614,16 +721,16 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 continue
             weekly_grouped.setdefault(yr, {}).setdefault(mon, []).append((report, wk_start))
 
-        for yr in sorted(weekly_grouped.keys(), reverse=True):
-            # Year header with consolidated button if available
+        for idx, yr in enumerate(sorted(weekly_grouped.keys(), reverse=True)):
+            # Year header with consolidated button if available (foldable per year)
             yr_cons = reports_path / f"weekly_consolidated_{yr}.html"
             yr_btn = f"<a href='weekly_consolidated_{yr}.html' class='dashboard-btn' target='_blank'><span class='icon'>📊</span>Weekly Comparison {yr}</a>" if yr_cons.exists() else ""
+            open_attr = " open" if idx == 0 else ""
             html_content += f"""
-            <div style="display:flex; align-items:center; justify-content:space-between; margin: 12px 0 6px 0;">
-                <h3 style="color:#333;">Year {yr}</h3>
-                <div style="min-width:260px;">{yr_btn}</div>
-            </div>
-            <div class="tabs" id="weekly-tabs-{yr}">
+            <details class="year-block"{open_attr}>
+                <summary>Year {yr}</summary>
+                <div style="margin: 10px 0 6px 0;">{yr_btn}</div>
+                <div class="tabs" id="weekly-tabs-{yr}">
                 <div class="tab-buttons">
 """
             months = sorted(weekly_grouped[yr].keys())
@@ -747,15 +854,29 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 html_content += "</div>"  # tab-panel
 
             html_content += "</div>"  # tabs
+            html_content += "</details>"  # year-block
         html_content += "</div>"  # section
     
     # Monthly Reports Section (grouped by year with comparison button)
     consolidated_monthly_global = reports_path / "monthly_consolidated.html"
-    if structure['monthly'] or consolidated_monthly_global.exists():
+    consolidated_monthly_all = reports_path / "monthly_consolidated_all_years.html"
+    if structure['monthly'] or consolidated_monthly_global.exists() or consolidated_monthly_all.exists():
         html_content += """
         <div class="section">
             <h2 class="section-title">📆 Monthly Reports</h2>
         """
+        if consolidated_monthly_all.exists():
+            html_content += f"""
+            <div style=\"margin-bottom: 14px; padding: 15px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 8px;\">
+                <a href=\"monthly_consolidated_all_years.html\" style=\"color: white; text-decoration: none; display: flex; align-items: center; justify-content: space-between;\" target=\"_blank\">
+                    <div>
+                        <div style=\"font-size: 1.3em; font-weight: bold; margin-bottom: 5px;\">📅 Monthly Comparison (All Years)</div>
+                        <div style=\"opacity: 0.9;\">All months across all years in one dashboard</div>
+                    </div>
+                    <div style=\"font-size: 1.5em;\">→</div>
+                </a>
+            </div>
+            """
         if consolidated_monthly_global.exists():
             html_content += f"""
             <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px;">
@@ -778,15 +899,15 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 continue
             monthly_grouped.setdefault(y, []).append(report)
 
-        for yr in sorted(monthly_grouped.keys(), reverse=True):
+        for idx, yr in enumerate(sorted(monthly_grouped.keys(), reverse=True)):
             yr_cons = reports_path / f"monthly_consolidated_{yr}.html"
             yr_btn = f"<a href='monthly_consolidated_{yr}.html' class='dashboard-btn' target='_blank'><span class='icon'>📅</span>Monthly Comparison {yr}</a>" if yr_cons.exists() else ""
+            open_attr = " open" if idx == 0 else ""
             html_content += f"""
-            <div style=\"display:flex; align-items:center; justify-content:space-between; margin: 12px 0 6px 0;\"> 
-                <h3 style=\"color:#333;\">Year {yr}</h3>
-                <div style=\"min-width:260px;\">{yr_btn}</div>
-            </div>
-            <div class='report-grid'>
+            <details class=\"year-block\"{open_attr}>
+                <summary>Year {yr}</summary>
+                <div style=\"margin: 10px 0 6px 0;\">{yr_btn}</div>
+                <div class='report-grid'>
             """
             for report in sorted(monthly_grouped[yr], key=lambda r: r['name'], reverse=True):
                 dashboard_file = None
@@ -876,6 +997,7 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 </div>
                 """
             html_content += "</div>"  # report-grid
+            html_content += "</details>"  # year-block
         html_content += "</div>"  # section
     
     # Custom Reports Section
