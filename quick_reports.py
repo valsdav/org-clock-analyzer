@@ -12,7 +12,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent))
 
 from generate_reports import (
-    generate_last_n_weeks_comparison,
+    generate_weekly_reports,
     generate_monthly_report,
     generate_yearly_report
 )
@@ -29,9 +29,11 @@ def main():
     """)
     
     print("This will generate the following reports:")
-    print("  1. Last 4 weeks comparison")
-    print("  2. Current month report")
-    print("  3. Current year report")
+    print("  1. Last 4 individual weekly reports")
+    print("  2. Consolidated weekly view (last 4 weeks)")
+    print("  3. Current month report")
+    print("  4. Consolidated monthly view (last 6 months)")
+    print("  5. Current year report")
     print()
     
     response = input("Continue? [Y/n]: ").strip().lower()
@@ -44,16 +46,16 @@ def main():
     base_dir.mkdir(exist_ok=True)
     
     print("\n" + "="*70)
-    print("STEP 1/4: Generating last 4 weeks comparison...")
+    print("STEP 1/6: Generating individual weekly reports...")
     print("="*70)
     try:
-        generate_last_n_weeks_comparison(n=4, output_dir="reports/weekly_comparison")
-        print("✓ Weekly comparison complete!")
+        generate_weekly_reports(n=4, output_dir="reports/weekly")
+        print("✓ Weekly reports complete!")
     except Exception as e:
         print(f"✗ Error: {e}")
     
     print("\n" + "="*70)
-    print("STEP 2/4: Generating consolidated weekly view...")
+    print("STEP 2/6: Generating consolidated weekly view...")
     print("="*70)
     try:
         generate_consolidated_weekly_report(n_weeks=4, output_file="reports/weekly_consolidated.html")
@@ -105,9 +107,10 @@ def main():
     print("\nReport structure:")
     print("  reports/")
     print("  ├── index.html  ← Browse all reports here!")
-    print("  ├── weekly_comparison/")
-    print("  │   ├── Week_XX_YYYY/ (for each week)")
-    print("  │   └── comparison charts")
+    print("  ├── weekly_consolidated.html")
+    print("  ├── monthly_consolidated.html")
+    print("  ├── weekly/")
+    print("  │   └── Week_XX_YYYY/ (for each week)")
     print("  ├── monthly/")
     print("  │   └── YYYY-MM/")
     print("  └── yearly/")

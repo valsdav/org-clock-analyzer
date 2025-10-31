@@ -22,14 +22,19 @@ def explore(parent, node, start_time=None, end_time=None):
     localT = 0.
     if hasattr(node, "clock"):
         for cl in node.clock:
+            # Skip clock entries that are not closed (end is None)
+            if cl.end is None:
+                continue
             if start_time:
                 if cl.start < start_time: continue
             if end_time:
                 if cl.end > end_time: continue
             try:
                 localT += (cl.end - cl.start).seconds / (60*60)
-            except:
+            except  Exception as e:
                 print(f"Error in node: {node}")
+                print(f"Clock entry: {cl}")
+                print(f"Error details: {e}")
                 localT = 0
     #print("Loading: ", node.heading)
     orgnode = OrgNode(name=node.heading,
@@ -64,6 +69,7 @@ def get_json_time(node):
             "name": node.name,
             "children": [
             ],
+            #"value": node.totalTime,
             "relTot": f"{100*node.totalFraction:.2f}",
             "relParent": f"{100*node.parentFraction:.2f}"
         }
@@ -85,13 +91,43 @@ def get_json_time(node):
             "relParent": f"{100*node.parentFraction:.2f}"
         }
 
+from dataclasses import dataclass
+@dataclass
+class ClockSummary:
+    name: str
+    parent: str
+    value: int
+    relTot: float
+    relParent: float
 
+def flatten_result(json_time):
+    results = []
+    def flatten(node, parent=None):
+        parent_name = parent["name"] if parent else ""
+        children = node.get('children', [])
+        if node["value"] == 0: return
+        yield ClockSummary(name=node["name"],
+                            parent=parent_name,
+                            value=node["value"],
+                            relTot=node["relTot"],
+                            relParent=node["relParent"])
+        for child in children:
+            yield from flatten(child, node)
+    for n in json_time["children"]:
+        results.extend(flatten(n))
+    return results
+    
 
 def load_files(files, start_time=None, end_time=None):
     t0 = time.time()
     clock_root  = OrgNode(name="root", parent=None, level=-1 ) 
     for f in files:
-        node = load(f)
+        try:
+            node = load(f)
+        except Exception as e:
+            print("Error in file:", f)
+            print("Error details:", e)
+            continue
         explore(clock_root, node, start_time, end_time)
         clock_root.children[-1].name = f.split("/")[-1][:-4]
     ## Accumulate the time

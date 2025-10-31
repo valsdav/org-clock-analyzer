@@ -4,6 +4,7 @@ Generate a consolidated weekly report page showing multiple weeks in one view.
 """
 
 from pathlib import Path
+import os
 from datetime import datetime, timedelta
 import json
 
@@ -48,8 +49,10 @@ def generate_consolidated_weekly_report(n_weeks=4, output_file="reports/weekly_c
                 'start_date': week_start,
                 'end_date': week_end,
                 'total_hours': 0,
+                'avg_per_day': 0,
                 'areas': {},
                 'topics': {},
+                'subtasks': {},
                 'tags': {},
                 'analyzer': None,
             })
@@ -65,8 +68,10 @@ def generate_consolidated_weekly_report(n_weeks=4, output_file="reports/weekly_c
             'start_date': week_start,
             'end_date': week_end,
             'total_hours': clock_root.totalTime,
+            'avg_per_day': (clock_root.totalTime / 7.0) if clock_root.totalTime else 0,
             'areas': analyzer.get_time_by_macro_area(),
             'topics': analyzer.get_time_by_topic(),
+            'subtasks': analyzer.get_time_by_subtask(),
             'tags': analyzer.get_time_by_tags(),
             'analyzer': analyzer,
         })
@@ -74,7 +79,7 @@ def generate_consolidated_weekly_report(n_weeks=4, output_file="reports/weekly_c
         print(f"  Total: {clock_root.totalTime:.2f} hours")
     
     # Generate HTML
-    html_content = generate_weekly_html(weekly_data, n_weeks)
+    html_content = generate_weekly_html(weekly_data, n_weeks, output_file)
     
     # Write file
     output_path = Path(output_file)
@@ -89,61 +94,203 @@ def generate_consolidated_weekly_report(n_weeks=4, output_file="reports/weekly_c
     return str(output_path.absolute())
 
 
-def generate_weekly_html(weekly_data, n_weeks):
+def generate_weekly_html(weekly_data, n_weeks, output_file):
     """Generate the HTML content for consolidated weekly report."""
+    # Compute relative link to reports/index.html based on output location
+    try:
+        output_dir = Path(output_file).parent
+        rel_index_link = os.path.relpath(Path('reports/index.html'), output_dir)
+    except Exception:
+        # Fallback to default same-folder index
+        rel_index_link = 'index.html'
     
     # Create overview chart - total hours trend
     weeks = [w['week_label'] for w in weekly_data]
     total_hours = [w['total_hours'] for w in weekly_data]
     dates = [w['start_date'].strftime('%b %d') for w in weekly_data]
+    avg_per_day = [w.get('avg_per_day', 0) for w in weekly_data]
     
-    fig_overview = go.Figure()
-    fig_overview.add_trace(go.Scatter(
-        x=weeks,
-        y=total_hours,
-        mode='lines+markers',
-        name='Total Hours',
-        line=dict(color='#667eea', width=3),
-        marker=dict(size=10),
-        text=[f"{h:.1f}h<br>{d}" for h, d in zip(total_hours, dates)],
-        hovertemplate='%{text}<extra></extra>',
-    ))
-    fig_overview.update_layout(
-        title=f"Total Hours Tracked - Last {n_weeks} Weeks",
-        xaxis_title="Week",
-        yaxis_title="Hours",
-        height=300,
-        margin=dict(t=50, b=50, l=50, r=50),
+    # Overview with dual axis: bars for total hours, line for avg/day
+    fig_overview = make_subplots(specs=[[{"secondary_y": True}]])
+    fig_overview.add_trace(
+        go.Bar(
+            x=weeks,
+            y=total_hours,
+            name='Total Hours',
+            marker_color='#667eea',
+            text=[f"{h:.0f}h" for h in total_hours],
+            textposition='outside',
+        ),
+        secondary_y=False,
     )
+    fig_overview.add_trace(
+        go.Scatter(
+            x=weeks,
+            y=avg_per_day,
+            name='Avg/Day',
+            mode='lines+markers',
+            line=dict(color='#ff6b6b', width=3),
+            marker=dict(size=8),
+            text=[f"{a:.1f}h" for a in avg_per_day],
+            hovertemplate='%{text}/day<extra></extra>',
+        ),
+        secondary_y=True,
+    )
+    fig_overview.update_layout(
+        title=f"Total Hours & Daily Average - Last {n_weeks} Weeks",
+        xaxis_title="Week",
+        height=350,
+        margin=dict(t=60, b=50, l=50, r=50),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+    )
+    fig_overview.update_yaxes(title_text="Total Hours", secondary_y=False)
+    fig_overview.update_yaxes(title_text="Average Hours/Day", secondary_y=True)
     overview_html = fig_overview.to_html(include_plotlyjs='cdn', div_id='overview-chart')
     
-    # Create stacked area chart by macro area
+    # Create line chart by macro area
     all_areas = set()
     for w in weekly_data:
         all_areas.update(w['areas'].keys())
     
     fig_areas = go.Figure()
-    for area in sorted(all_areas):
+    colors = ['#667eea', '#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', 
+              '#f0932b', '#eb4d4b', '#6ab04c', '#c44569', '#574b90',
+              '#f8b500', '#00a8cc', '#9980fa', '#ff6348', '#26de81']
+    
+    for idx, area in enumerate(sorted(all_areas)):
         area_hours = [w['areas'].get(area, 0) for w in weekly_data]
-        fig_areas.add_trace(go.Bar(
+        color = colors[idx % len(colors)]
+        fig_areas.add_trace(go.Scatter(
             name=area,
             x=weeks,
             y=area_hours,
+            mode='lines+markers',
+            line=dict(width=3, color=color),
+            marker=dict(size=8, color=color),
             hovertemplate=f'{area}: %{{y:.1f}}h<extra></extra>',
         ))
     
     fig_areas.update_layout(
-        title=f"Time by Macro Area - Last {n_weeks} Weeks",
+        title=f"Time by Macro Area - Weekly Trends",
         xaxis_title="Week",
         yaxis_title="Hours",
-        barmode='stack',
-        height=400,
-        margin=dict(t=50, b=50, l=50, r=50),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        height=500,
+        margin=dict(t=60, b=50, l=50, r=50),
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+        hovermode='x unified',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
     )
     areas_html = fig_areas.to_html(include_plotlyjs=False, div_id='areas-chart')
+
+    # Create line chart for top 15 topics across weeks
+    all_topics = set()
+    for w in weekly_data:
+        all_topics.update(w['topics'].keys())
+    topic_totals = {}
+    for w in weekly_data:
+        for topic, hours in w['topics'].items():
+            topic_totals[topic] = topic_totals.get(topic, 0) + hours
+    top_topics = sorted(topic_totals.items(), key=lambda x: x[1], reverse=True)[:15]
+    top_topic_names = [t[0] for t in top_topics]
+    
+    fig_topics = go.Figure()
+    for idx, topic in enumerate(top_topic_names):
+        topic_hours = [w['topics'].get(topic, 0) for w in weekly_data]
+        color = colors[idx % len(colors)]
+        fig_topics.add_trace(go.Scatter(
+            name=topic,
+            x=weeks,
+            y=topic_hours,
+            mode='lines+markers',
+            line=dict(width=2.5, color=color),
+            marker=dict(size=7, color=color),
+            hovertemplate=f'{topic}: %{{y:.1f}}h<extra></extra>',
+        ))
+    fig_topics.update_layout(
+        title=f"Top 15 Topics - Weekly Trends",
+        xaxis_title="Week",
+        yaxis_title="Hours",
+        height=550,
+        margin=dict(t=60, b=50, l=50, r=50),
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+        hovermode='x unified',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+    )
+    topics_html = fig_topics.to_html(include_plotlyjs=False, div_id='topics-chart')
+
+    # Create line chart for top 15 subtasks across weeks
+    all_subtasks = set()
+    for w in weekly_data:
+        all_subtasks.update(w['subtasks'].keys())
+    subtask_totals = {}
+    for w in weekly_data:
+        for subtask, hours in w['subtasks'].items():
+            subtask_totals[subtask] = subtask_totals.get(subtask, 0) + hours
+    top_subtasks = sorted(subtask_totals.items(), key=lambda x: x[1], reverse=True)[:15]
+    top_subtask_names = [t[0] for t in top_subtasks]
+    
+    fig_subtasks = go.Figure()
+    for idx, subtask in enumerate(top_subtask_names):
+        subtask_hours = [w['subtasks'].get(subtask, 0) for w in weekly_data]
+        color = colors[idx % len(colors)]
+        fig_subtasks.add_trace(go.Scatter(
+            name=subtask,
+            x=weeks,
+            y=subtask_hours,
+            mode='lines+markers',
+            line=dict(width=2.5, color=color),
+            marker=dict(size=7, color=color),
+            hovertemplate=f'{subtask}: %{{y:.1f}}h<extra></extra>',
+        ))
+    fig_subtasks.update_layout(
+        title=f"Top 15 Subtasks - Weekly Trends",
+        xaxis_title="Week",
+        yaxis_title="Hours",
+        height=550,
+        margin=dict(t=60, b=50, l=50, r=50),
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+        hovermode='x unified',
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+    )
+    subtasks_html = fig_subtasks.to_html(include_plotlyjs=False, div_id='subtasks-chart')
+
+    # Heatmap of top topics across weeks
+    heatmap_data = []
+    for topic in top_topic_names:
+        row = [w['topics'].get(topic, 0) for w in weekly_data]
+        heatmap_data.append(row)
+    fig_heatmap = go.Figure(data=go.Heatmap(
+        z=heatmap_data,
+        x=weeks,
+        y=top_topic_names,
+        colorscale='Viridis',
+        hoverongaps=False,
+        hovertemplate='%{y}<br>%{x}: %{z:.1f}h<extra></extra>',
+    ))
+    fig_heatmap.update_layout(
+        title="Top 15 Topics - Weekly Heatmap",
+        xaxis_title="Week",
+        yaxis_title="Topic",
+        height=500,
+        margin=dict(t=60, b=50, l=250, r=50),
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+    )
+    heatmap_html = fig_heatmap.to_html(include_plotlyjs=False, div_id='heatmap-chart')
     
     # Start HTML
+    # Calculate summary statistics
+    total_all_weeks = sum(total_hours)
+    nonzero_weeks = [w for w in weekly_data if w['total_hours'] > 0]
+    avg_weekly = (total_all_weeks / len(nonzero_weeks)) if nonzero_weeks else 0
+    max_week = max(weekly_data, key=lambda x: x['total_hours']) if weekly_data else None
+    min_week = min(nonzero_weeks, key=lambda x: x['total_hours']) if nonzero_weeks else None
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -159,7 +306,7 @@ def generate_weekly_html(weekly_data, n_weeks):
         
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
             padding: 20px;
         }}
@@ -168,6 +315,37 @@ def generate_weekly_html(weekly_data, n_weeks):
             max-width: 1600px;
             margin: 0 auto;
         }}
+        
+            .nav-bar {{
+                background: white;
+                border-radius: 12px;
+                padding: 15px 30px;
+                margin-bottom: 20px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                display: flex;
+                align-items: center;
+                gap: 20px;
+            }}
+        
+            .nav-bar a {{
+                color: #667eea;
+                text-decoration: none;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: color 0.3s;
+            }}
+        
+            .nav-bar a:hover {{
+                color: #764ba2;
+            }}
+        
+            .nav-bar .nav-title {{
+                color: #333;
+                font-size: 0.9em;
+                margin-left: auto;
+            }}
         
         .header {{
             background: white;
@@ -186,6 +364,33 @@ def generate_weekly_html(weekly_data, n_weeks):
         .subtitle {{
             color: #666;
             font-size: 1.1em;
+            margin-bottom: 20px;
+        }}
+
+        .summary-stats {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }}
+        
+        .stat-box {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }}
+        
+        .stat-value {{
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+        
+        .stat-label {{
+            font-size: 0.9em;
+            opacity: 0.9;
         }}
         
         .section {{
@@ -323,9 +528,43 @@ def generate_weekly_html(weekly_data, n_weeks):
 </head>
 <body>
     <div class="container">
+        <div class="nav-bar">
+            <a href="{rel_index_link}">← Back to Index</a>
+            <span class="nav-title">Weekly Consolidated Report</span>
+        </div>
+        
         <div class="header">
             <h1>📊 Weekly Reports Consolidated</h1>
             <div class="subtitle">Last {n_weeks} Weeks Overview</div>
+            <div class="summary-stats">
+                <div class="stat-box">
+                    <div class="stat-value">{total_all_weeks:.0f}h</div>
+                    <div class="stat-label">Total Hours</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value">{avg_weekly:.0f}h</div>
+                    <div class="stat-label">Avg per Week</div>
+                </div>
+    """
+
+    if max_week:
+        html += f"""
+                <div class="stat-box">
+                    <div class="stat-value">{max_week['total_hours']:.0f}h</div>
+                    <div class="stat-label">Peak: {max_week['week_label']}</div>
+                </div>
+    """
+
+    if min_week:
+        html += f"""
+                <div class="stat-box">
+                    <div class="stat-value">{min_week['total_hours']:.0f}h</div>
+                    <div class="stat-label">Low: {min_week['week_label']}</div>
+                </div>
+    """
+
+    html += f"""
+            </div>
         </div>
         
         <div class="section">
@@ -337,6 +576,24 @@ def generate_weekly_html(weekly_data, n_weeks):
         <div class="section">
             <div class="chart-container">
                 {areas_html}
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="chart-container">
+                {topics_html}
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="chart-container">
+                {subtasks_html}
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="chart-container">
+                {heatmap_html}
             </div>
         </div>
 """

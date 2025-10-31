@@ -27,6 +27,86 @@ from plotly.subplots import make_subplots
 import org_time
 
 
+def add_nav_to_html(html_file, relative_index_path=None):
+    """Add navigation bar to an HTML file.
+    If relative_index_path is not provided, compute a path to reports/index.html
+    relative to the html_file location.
+    """
+    try:
+        html_path = Path(html_file)
+        # Find the 'reports' folder in the path and compute depth from there
+        parts = html_path.parts
+        if 'reports' in parts:
+            reports_idx = parts.index('reports')
+            # How many segments after 'reports' before the file name
+            depth_after_reports = len(parts) - reports_idx - 2  # exclude 'reports' and filename
+            if depth_after_reports <= 0:
+                rel_index = 'index.html'
+            else:
+                rel_index = '../' * depth_after_reports + 'index.html'
+        else:
+            # Fallback: assume sibling index.html
+            rel_index = '../index.html'
+    except Exception:
+        rel_index = '../index.html'
+    
+    if relative_index_path is None:
+        relative_index_path = rel_index
+    nav_html = """
+    <style>
+        .report-nav-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-bottom: 2px solid #667eea;
+            padding: 12px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .report-nav-bar a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: color 0.3s;
+        }
+        .report-nav-bar a:hover {
+            color: #764ba2;
+        }
+        .report-nav-bar .nav-title {
+            color: #666;
+            font-size: 13px;
+            margin-left: auto;
+        }
+        body {
+            padding-top: 60px !important;
+        }
+    </style>
+    <div class="report-nav-bar">
+        <a href="%s">← Back to Index</a>
+        <span class="nav-title">Org Clock Analyzer Reports</span>
+    </div>
+    """ % relative_index_path
+    
+    with open(html_file, 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    # Insert navigation after <body> tag
+    if '<body>' in content:
+        content = content.replace('<body>', '<body>\n' + nav_html, 1)
+    
+    with open(html_file, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
 # Configuration: List of org files to analyze
 ORG_FILES = [
     "/home/valsdav/org/Clustering.org",
@@ -75,20 +155,41 @@ class TimeAnalyzer:
                 topics[topic_name] = topic_child.totalTime
         return dict(topics)
     
+    def get_time_by_subtask(self):
+        """Extract time spent per subtask (second-layer tasks under topics)."""
+        subtasks = defaultdict(float)
+        for area_child in self.clock_root.children:
+            area_name = area_child.name
+            for topic_child in area_child.children:
+                topic_name = topic_child.name
+                for subtask_child in topic_child.children:
+                    subtask_name = f"{area_name}/{topic_name}/{subtask_child.name}"
+                    subtasks[subtask_name] = subtask_child.totalTime
+        return dict(subtasks)
+    
     def get_time_by_tags(self):
-        """Extract time spent per tag across all tasks."""
+        """Extract time spent per tag across all tasks.
+        Rules:
+        - Use localTime only (time directly recorded on the node) to avoid double counting.
+        - If a node has multiple tags, split its local time evenly across its tags.
+        This guarantees that the sum of tag hours equals total tracked hours (up to rounding).
+        """
         tags = defaultdict(float)
-        
-        def collect_tags(node):
-            if node.tags:
-                for tag in node.tags:
-                    tags[tag] += node.totalTime
+
+        def traverse(node):
+            # Distribute only the direct time logged on this node
+            if getattr(node, 'localTime', 0) and node.tags:
+                t = float(getattr(node, 'localTime', 0))
+                n = len(node.tags)
+                if n > 0 and t > 0:
+                    share = t / n
+                    for tag in node.tags:
+                        tags[tag] += share
+            # Recurse into children
             for child in node.children:
-                collect_tags(child)
-        
-        for child in self.clock_root.children:
-            collect_tags(child)
-        
+                traverse(child)
+
+        traverse(self.clock_root)
         return dict(tags)
     
     def get_detailed_breakdown(self):
@@ -136,6 +237,7 @@ class ReportGenerator:
         """Generate a summary table with key metrics."""
         areas = self.analyzer.get_time_by_macro_area()
         topics = self.analyzer.get_time_by_topic()
+        subtasks = self.analyzer.get_time_by_subtask()
         tags = self.analyzer.get_time_by_tags()
         
         print(f"\n{'='*80}")
@@ -175,27 +277,50 @@ class ReportGenerator:
         ])
         print(topic_df.to_string(index=False))
         
+        # Top Subtasks
+        subtask_df = None
+        if subtasks:
+            print(f"\n\nTOP 15 SUBTASKS")
+            print(f"{'-'*80}")
+            subtasks_sorted = sorted(subtasks.items(), key=lambda x: x[1], reverse=True)[:15]
+            subtask_df = pd.DataFrame([
+                {
+                    'Subtask': subtask,
+                    'Hours': f"{time:.2f}",
+                    'Percentage': f"{100*time/self.total_time:.1f}%"
+                }
+                for subtask, time in subtasks_sorted
+            ])
+            print(subtask_df.to_string(index=False))
+        
         # Tags
         tag_df = None
         if tags:
             print(f"\n\nTIME BY TAG")
             print(f"{'-'*80}")
             tags_sorted = sorted(tags.items(), key=lambda x: x[1], reverse=True)
+            # Filter tags that round to at least 0.1% for cleaner display
             tag_df = pd.DataFrame([
                 {
                     'Tag': tag,
                     'Hours': f"{time:.2f}",
                     'Percentage': f"{100*time/self.total_time:.1f}%"
                 }
-                for tag, time in tags_sorted if time > 0
+                for tag, time in tags_sorted if time > 0 and (100*time/self.total_time) >= 0.05
             ])
             print(tag_df.to_string(index=False))
+            # Count how many tags were filtered out
+            filtered_count = sum(1 for tag, time in tags_sorted if time > 0 and (100*time/self.total_time) < 0.05)
+            if filtered_count > 0:
+                print(f"\n(+ {filtered_count} tags with < 0.1% not shown; see CSV for full details)")
+            print(f"Note: Percentages sum to 100% in CSV exports; display rounded to 1 decimal")
         
         print(f"\n{'='*80}\n")
         
         return {
             'areas': area_df,
             'topics': topic_df,
+            'subtasks': subtask_df,
             'tags': tag_df
         }
     
@@ -225,6 +350,7 @@ class ReportGenerator:
         
         if output_file:
             fig.write_html(output_file)
+            add_nav_to_html(output_file)
         else:
             fig.show()
         
@@ -264,6 +390,52 @@ class ReportGenerator:
         
         if output_file:
             fig.write_html(output_file)
+            add_nav_to_html(output_file)
+        else:
+            fig.show()
+        
+        return fig
+    
+    def plot_subtasks_bar(self, top_n=20, output_file=None):
+        """Create a horizontal bar chart of top subtasks."""
+        subtasks = self.analyzer.get_time_by_subtask()
+        
+        if not subtasks:
+            print("No subtasks found in the data.")
+            return None
+        
+        subtasks_sorted = sorted(subtasks.items(), key=lambda x: x[1], reverse=True)[:top_n]
+        
+        names = [item[0] for item in subtasks_sorted]
+        values = [item[1] for item in subtasks_sorted]
+        
+        # Reverse for better display (highest at top)
+        names = names[::-1]
+        values = values[::-1]
+        
+        fig = go.Figure(data=[go.Bar(
+            x=values,
+            y=names,
+            orientation='h',
+            marker=dict(
+                color=values,
+                colorscale='Cividis',
+            ),
+            text=[f"{v:.1f}h" for v in values],
+            textposition='auto',
+        )])
+        
+        fig.update_layout(
+            title=f"Top {top_n} Subtasks by Time - {self.period_name}",
+            xaxis_title="Hours",
+            yaxis_title="Subtask",
+            height=max(400, top_n * 25),
+            showlegend=False,
+        )
+        
+        if output_file:
+            fig.write_html(output_file)
+            add_nav_to_html(output_file)
         else:
             fig.show()
         
@@ -311,6 +483,7 @@ class ReportGenerator:
         
         if output_file:
             fig.write_html(output_file)
+            add_nav_to_html(output_file)
         else:
             fig.show()
         
@@ -320,20 +493,23 @@ class ReportGenerator:
         """Create a comprehensive dashboard with multiple visualizations."""
         areas = self.analyzer.get_time_by_macro_area()
         topics = self.analyzer.get_time_by_topic()
+        subtasks = self.analyzer.get_time_by_subtask()
         tags = self.analyzer.get_time_by_tags()
         
-        # Create subplots
+        # Create subplots - 3x2 grid (3 rows, 2 columns)
         fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=('Time by Macro Area', 'Top 10 Topics', 
-                          'Time by Tags', 'Area Breakdown (Treemap)'),
+            rows=3, cols=2,
+            subplot_titles=('Time by Macro Area', 'Top 15 Topics',
+                          'Top 15 Subtasks', 'Time by Tags',
+                          'Area Breakdown (Treemap)', 'Subtask Details'),
             specs=[[{'type': 'pie'}, {'type': 'bar'}],
-                   [{'type': 'bar'}, {'type': 'treemap'}]],
-            vertical_spacing=0.12,
-            horizontal_spacing=0.1,
+                   [{'type': 'bar'}, {'type': 'bar'}],
+                   [{'type': 'treemap'}, {'type': 'bar'}]],
+            vertical_spacing=0.10,
+            horizontal_spacing=0.12,
         )
         
-        # 1. Pie chart - Macro areas
+        # 1. Pie chart - Macro areas (Row 1, Col 1)
         areas_sorted = sorted(areas.items(), key=lambda x: x[1], reverse=True)
         areas_filtered = [(name, time) for name, time in areas_sorted if time > 0]
         fig.add_trace(
@@ -343,8 +519,8 @@ class ReportGenerator:
             row=1, col=1
         )
         
-        # 2. Bar chart - Top topics
-        topics_sorted = sorted(topics.items(), key=lambda x: x[1], reverse=True)[:10]
+        # 2. Bar chart - Top 15 topics (Row 1, Col 2)
+        topics_sorted = sorted(topics.items(), key=lambda x: x[1], reverse=True)[:15]
         topics_names = [item[0] for item in topics_sorted][::-1]
         topics_values = [item[1] for item in topics_sorted][::-1]
         fig.add_trace(
@@ -353,18 +529,29 @@ class ReportGenerator:
             row=1, col=2
         )
         
-        # 3. Bar chart - Tags
+        # 3. Bar chart - Top 15 subtasks (Row 2, Col 1)
+        if subtasks:
+            subtasks_sorted = sorted(subtasks.items(), key=lambda x: x[1], reverse=True)[:15]
+            subtasks_names = [item[0] for item in subtasks_sorted][::-1]
+            subtasks_values = [item[1] for item in subtasks_sorted][::-1]
+            fig.add_trace(
+                go.Bar(x=subtasks_values, y=subtasks_names, orientation='h',
+                       marker=dict(color=subtasks_values, colorscale='Cividis')),
+                row=2, col=1
+            )
+        
+        # 4. Bar chart - Top 15 Tags (Row 2, Col 2)
         if tags:
-            tags_sorted = sorted(tags.items(), key=lambda x: x[1], reverse=True)[:10]
+            tags_sorted = sorted(tags.items(), key=lambda x: x[1], reverse=True)[:15]
             tags_names = [item[0] for item in tags_sorted][::-1]
             tags_values = [item[1] for item in tags_sorted][::-1]
             fig.add_trace(
                 go.Bar(x=tags_values, y=tags_names, orientation='h',
                        marker=dict(color=tags_values, colorscale='Greens')),
-                row=2, col=1
+                row=2, col=2
             )
         
-        # 4. Treemap - Hierarchical view
+        # 5. Treemap - Hierarchical view (Row 3, Col 1)
         # Prepare data for treemap
         treemap_labels = ["All"]
         treemap_parents = [""]
@@ -383,17 +570,37 @@ class ReportGenerator:
                 values=treemap_values,
                 marker=dict(colorscale='Reds'),
             ),
-            row=2, col=2
+            row=3, col=1
         )
+        
+        # 6. Subtask details from top topics (Row 3, Col 2)
+        if subtasks:
+            # Show subtasks from top 3 topics
+            subtask_details = []
+            for topic_name, _ in topics_sorted[:3]:
+                for subtask_name, subtask_time in subtasks.items():
+                    if subtask_name.startswith(topic_name):
+                        subtask_details.append((subtask_name.split('/')[-1], subtask_time))
+            
+            if subtask_details:
+                subtask_details_sorted = sorted(subtask_details, key=lambda x: x[1], reverse=True)[:15]
+                sd_names = [item[0] for item in subtask_details_sorted][::-1]
+                sd_values = [item[1] for item in subtask_details_sorted][::-1]
+                fig.add_trace(
+                    go.Bar(x=sd_values, y=sd_names, orientation='h',
+                           marker=dict(color=sd_values, colorscale='Oranges')),
+                    row=3, col=2
+                )
         
         fig.update_layout(
             title_text=f"Time Tracking Dashboard - {self.period_name}",
-            height=1000,
+            height=1400,
             showlegend=False,
         )
         
         if output_file:
             fig.write_html(output_file)
+            add_nav_to_html(output_file)
         else:
             fig.show()
         
@@ -420,6 +627,28 @@ class ReportGenerator:
             for topic, time in sorted(topics.items(), key=lambda x: x[1], reverse=True)
         ])
         topics_df.to_csv(output_dir / f"topics_{self.period_name}.csv", index=False)
+        
+        # Export subtasks
+        subtasks = self.analyzer.get_time_by_subtask()
+        if subtasks:
+            subtasks_data = []
+            for subtask_path, time in sorted(subtasks.items(), key=lambda x: x[1], reverse=True):
+                parts = subtask_path.split('/')
+                if len(parts) >= 3:
+                    area = parts[0]
+                    topic = parts[1]
+                    subtask = '/'.join(parts[2:])  # Handle subtasks with / in name
+                    subtasks_data.append({
+                        'Area': area, 
+                        'Topic': topic, 
+                        'Subtask': subtask, 
+                        'Hours': time, 
+                        'Percentage': 100*time/self.total_time
+                    })
+            
+            if subtasks_data:
+                subtasks_df = pd.DataFrame(subtasks_data)
+                subtasks_df.to_csv(output_dir / f"subtasks_{self.period_name}.csv", index=False)
         
         # Export tags
         tags = self.analyzer.get_time_by_tags()
@@ -450,6 +679,10 @@ class ReportGenerator:
             self.plot_macro_areas_pie(output_dir / f"pie_areas_{self.period_name}.html")
             self.plot_topics_bar(top_n=20, output_file=output_dir / f"bar_topics_{self.period_name}.html")
             
+            subtasks = self.analyzer.get_time_by_subtask()
+            if subtasks:
+                self.plot_subtasks_bar(top_n=20, output_file=output_dir / f"bar_subtasks_{self.period_name}.html")
+            
             tags = self.analyzer.get_time_by_tags()
             if tags:
                 self.plot_tags_wordcloud_style(output_dir / f"tags_{self.period_name}.html")
@@ -465,6 +698,10 @@ class ReportGenerator:
             self.generate_summary_table()
             self.plot_macro_areas_pie()
             self.plot_topics_bar(top_n=20)
+            
+            subtasks = self.analyzer.get_time_by_subtask()
+            if subtasks:
+                self.plot_subtasks_bar(top_n=20)
             
             tags = self.analyzer.get_time_by_tags()
             if tags:

@@ -140,6 +140,50 @@ def create_weekly_comparison_plots(weekly_data, output_dir):
     print(f"\n{df.to_string(index=False)}")
 
 
+def generate_weekly_reports(n=4, output_dir="reports/weekly"):
+    """Generate individual weekly reports for the last N weeks."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f"\n{'='*80}")
+    print(f"GENERATING LAST {n} WEEKLY REPORTS")
+    print(f"{'='*80}\n")
+    
+    for i in range(n):
+        # Calculate week dates (going backwards)
+        today = datetime.today()
+        week_start = today - timedelta(days=today.weekday()) - timedelta(weeks=n-1-i)
+        week_end = week_start + timedelta(days=7)
+        
+        week_num = week_start.isocalendar()[1]
+        year = week_start.year
+        period_name = f"Week_{week_num}_{year}"
+        
+        print(f"\nGenerating Week {week_num} ({week_start.date()} to {week_end.date()})...")
+        
+        # Load data
+        clock_root = org_time.load_files(ORG_FILES, week_start, week_end)
+        
+        if clock_root.totalTime == 0:
+            print(f"  No data for this week")
+            continue
+        
+        # Analyze
+        analyzer = TimeAnalyzer(clock_root)
+        
+        # Generate individual report
+        report_gen = ReportGenerator(analyzer, period_name, week_start, week_end)
+        week_dir = output_dir / period_name
+        week_dir.mkdir(exist_ok=True)
+        report_gen.generate_full_report(week_dir)
+        
+        print(f"  ✓ Report saved to: {week_dir}")
+    
+    print(f"\n{'='*80}")
+    print(f"Weekly reports generated in: {output_dir}")
+    print(f"{'='*80}\n")
+
+
 def generate_monthly_report(year=None, month=None, output_dir="reports/monthly"):
     """Generate a monthly report."""
     if year is None or month is None:

@@ -138,9 +138,12 @@ org_clock_analyzer/
     ├── index.html           # Browse all reports
     ├── weekly_consolidated.html   # All weekly reports in one page
     ├── monthly_consolidated.html  # All monthly reports in one page
-    ├── weekly_comparison/
+    ├── weekly/
+    │   └── Week_XX_YYYY/ (individual week reports)
     ├── monthly/
+    │   └── YYYY-MM/ (individual month reports)
     └── yearly/
+        └── Year_YYYY/ (individual year reports)
 ```
 
 ## Scripts Overview

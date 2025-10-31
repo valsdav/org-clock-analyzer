@@ -146,28 +146,39 @@ When saving reports to a directory:
 
 ```
 reports/
-├── weekly_comparison/
-│   ├── Week_15_2024/
-│   │   ├── dashboard_Week_15_2024.html
-│   │   ├── pie_areas_Week_15_2024.html
-│   │   ├── bar_topics_Week_15_2024.html
-│   │   ├── tags_Week_15_2024.html
-│   │   ├── areas_Week_15_2024.csv
-│   │   ├── topics_Week_15_2024.csv
-│   │   ├── tags_Week_15_2024.csv
-│   │   └── detailed_Week_15_2024.csv
-│   ├── weekly_total_trend.html
-│   ├── weekly_areas_comparison.html
-│   └── weekly_comparison_summary.csv
+├── index.html                  # Main index page to browse all reports
+├── weekly_consolidated.html    # Consolidated view of last 4 weeks
+├── monthly_consolidated.html   # Consolidated view of last 6 months
+├── weekly/
+│   └── Week_XX_YYYY/
+│       ├── dashboard_Week_XX_YYYY.html
+│       ├── pie_areas_Week_XX_YYYY.html
+│       ├── bar_topics_Week_XX_YYYY.html
+│       ├── bar_subtasks_Week_XX_YYYY.html
+│       ├── tags_Week_XX_YYYY.html
+│       ├── areas_Week_XX_YYYY.csv
+│       ├── topics_Week_XX_YYYY.csv
+│       ├── subtasks_Week_XX_YYYY.csv
+│       ├── tags_Week_XX_YYYY.csv
+│       └── detailed_Week_XX_YYYY.csv
 ├── monthly/
-│   └── 2024-03/
-│       └── [similar structure]
+│   └── YYYY-MM/
+│       ├── dashboard_YYYY-MM.html
+│       ├── pie_areas_YYYY-MM.html
+│       ├── bar_topics_YYYY-MM.html
+│       ├── bar_subtasks_YYYY-MM.html
+│       ├── tags_YYYY-MM.html
+│       ├── areas_YYYY-MM.csv
+│       ├── topics_YYYY-MM.csv
+│       ├── subtasks_YYYY-MM.csv
+│       ├── tags_YYYY-MM.csv
+│       └── detailed_YYYY-MM.csv
 └── yearly/
-    └── Year_2024/
+    └── Year_YYYY/
         ├── [yearly report files]
-        ├── monthly_trend_2024.html
-        ├── monthly_areas_breakdown_2024.html
-        └── monthly_summary_2024.csv
+        ├── monthly_trend_YYYY.html
+        ├── monthly_areas_breakdown_YYYY.html
+        └── monthly_summary_YYYY.csv
 ```
 
 ## Configuration

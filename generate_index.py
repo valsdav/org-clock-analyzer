@@ -32,7 +32,7 @@ def scan_reports_directory(reports_dir="reports"):
         dir_name = item.name
         
         # Categorize directories
-        if dir_name == 'weekly_comparison':
+        if dir_name == 'weekly':
             # Scan weekly reports
             for week_dir in item.iterdir():
                 if week_dir.is_dir():
@@ -43,15 +43,6 @@ def scan_reports_directory(reports_dir="reports"):
                             'path': str(week_dir.relative_to(reports_path)),
                             'files': files,
                         })
-            
-            # Add comparison files
-            comparison_files = list_report_files(item, reports_path)
-            if comparison_files:
-                structure['weekly'].append({
-                    'name': 'Weekly Comparisons',
-                    'path': str(item.relative_to(reports_path)),
-                    'files': comparison_files,
-                })
         
         elif dir_name == 'monthly':
             # Scan monthly reports
@@ -184,7 +175,7 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
         
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
             padding: 20px;
         }}
@@ -281,28 +272,87 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             font-weight: 600;
         }}
         
-        .file-list {{
-            margin-top: 10px;
-        }}
-        
-        .file-category {{
-            margin-bottom: 15px;
-        }}
-        
-        .file-category-title {{
-            font-size: 0.9em;
-            color: #667eea;
+        .dashboard-btn {{
+            display: block;
+            width: 100%;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 1.1em;
             font-weight: 600;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            text-align: center;
+            margin-bottom: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+        }}
+        
+        .dashboard-btn:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(102, 126, 234, 0.4);
+        }}
+        
+        .dashboard-btn .icon {{
+            font-size: 1.3em;
+            margin-right: 10px;
+        }}
+        
+        .collapsible {{
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-top: 10px;
+            overflow: hidden;
+        }}
+        
+        .collapsible-header {{
+            padding: 12px 15px;
+            background: #f8f9fa;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #555;
+            user-select: none;
+            transition: background 0.2s;
+        }}
+        
+        .collapsible-header:hover {{
+            background: #e9ecef;
+        }}
+        
+        .collapsible-header .toggle {{
+            transition: transform 0.3s;
+            font-size: 0.8em;
+        }}
+        
+        .collapsible-header.active .toggle {{
+            transform: rotate(180deg);
+        }}
+        
+        .collapsible-content {{
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            background: white;
+        }}
+        
+        .collapsible-content.active {{
+            max-height: 2000px;
+            transition: max-height 0.5s ease-in;
+        }}
+        
+        .collapsible-body {{
+            padding: 15px;
         }}
         
         .file-link {{
             display: block;
             padding: 8px 12px;
             margin-bottom: 5px;
-            background: white;
+            background: #f8f9fa;
             border-radius: 4px;
             text-decoration: none;
             color: #333;
@@ -325,7 +375,7 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
         
         .file-meta {{
             font-size: 0.8em;
-            color: #999;
+            opacity: 0.7;
             margin-left: 10px;
         }}
         
@@ -342,7 +392,7 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
         
         .footer {{
             text-align: center;
-            color: white;
+            color: #666;
             margin-top: 30px;
             padding: 20px;
             opacity: 0.8;
@@ -415,39 +465,73 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             <div class="report-grid">
 """
         for report in structure['weekly']:
+            # Find dashboard file
+            dashboard_file = None
+            other_html = []
+            for file in report['files']['html']:
+                if 'dashboard' in file['name'].lower():
+                    dashboard_file = file
+                else:
+                    other_html.append(file)
+            
             html_content += f"""
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
 """
-            if report['files']['html']:
-                html_content += """
-                    <div class="file-category">
-                        <div class="file-category-title">📈 Visualizations</div>
+            
+            # Dashboard button
+            if dashboard_file:
+                html_content += f"""
+                    <a href="{dashboard_file['path']}" class="dashboard-btn" target="_blank">
+                        <span class="icon">📊</span>View Dashboard
+                    </a>
 """
-                for file in report['files']['html']:
+            
+            # Collapsible for other HTML reports
+            if other_html:
+                html_content += """
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                            <span>📈 Other Visualizations</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
+"""
+                for file in other_html:
                     html_content += f"""
-                        <a href="{file['path']}" class="file-link file-link-html" target="_blank">
-                            <span class="icon">📊</span>{file['name']}
-                            <span class="file-meta">{format_file_size(file['size'])}</span>
-                        </a>
+                                <a href="{file['path']}" class="file-link file-link-html" target="_blank">
+                                    <span class="icon">📊</span>{file['name']}
+                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                </a>
 """
                 html_content += """
+                            </div>
+                        </div>
                     </div>
 """
             
+            # Collapsible for CSV files
             if report['files']['csv']:
                 html_content += """
-                    <div class="file-category">
-                        <div class="file-category-title">📄 Data Exports</div>
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                            <span>📄 Data Exports</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
 """
                 for file in report['files']['csv']:
                     html_content += f"""
-                        <a href="{file['path']}" class="file-link file-link-csv" download>
-                            <span class="icon">📋</span>{file['name']}
-                            <span class="file-meta">{format_file_size(file['size'])}</span>
-                        </a>
+                                <a href="{file['path']}" class="file-link file-link-csv" download>
+                                    <span class="icon">📋</span>{file['name']}
+                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                </a>
 """
                 html_content += """
+                            </div>
+                        </div>
                     </div>
 """
             
@@ -490,39 +574,73 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             <div class="report-grid">
 """
         for report in structure['monthly']:
+            # Find dashboard file
+            dashboard_file = None
+            other_html = []
+            for file in report['files']['html']:
+                if 'dashboard' in file['name'].lower():
+                    dashboard_file = file
+                else:
+                    other_html.append(file)
+            
             html_content += f"""
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
 """
-            if report['files']['html']:
-                html_content += """
-                    <div class="file-category">
-                        <div class="file-category-title">📈 Visualizations</div>
+            
+            # Dashboard button
+            if dashboard_file:
+                html_content += f"""
+                    <a href="{dashboard_file['path']}" class="dashboard-btn" target="_blank">
+                        <span class="icon">📊</span>View Dashboard
+                    </a>
 """
-                for file in report['files']['html']:
+            
+            # Collapsible for other HTML reports
+            if other_html:
+                html_content += """
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                            <span>📈 Other Visualizations</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
+"""
+                for file in other_html:
                     html_content += f"""
-                        <a href="{file['path']}" class="file-link file-link-html" target="_blank">
-                            <span class="icon">📊</span>{file['name']}
-                            <span class="file-meta">{format_file_size(file['size'])}</span>
-                        </a>
+                                <a href="{file['path']}" class="file-link file-link-html" target="_blank">
+                                    <span class="icon">📊</span>{file['name']}
+                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                </a>
 """
                 html_content += """
+                            </div>
+                        </div>
                     </div>
 """
             
+            # Collapsible for CSV files
             if report['files']['csv']:
                 html_content += """
-                    <div class="file-category">
-                        <div class="file-category-title">📄 Data Exports</div>
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                            <span>📄 Data Exports</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
 """
                 for file in report['files']['csv']:
                     html_content += f"""
-                        <a href="{file['path']}" class="file-link file-link-csv" download>
-                            <span class="icon">📋</span>{file['name']}
-                            <span class="file-meta">{format_file_size(file['size'])}</span>
-                        </a>
+                                <a href="{file['path']}" class="file-link file-link-csv" download>
+                                    <span class="icon">📋</span>{file['name']}
+                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                </a>
 """
                 html_content += """
+                            </div>
+                        </div>
                     </div>
 """
             
@@ -543,39 +661,73 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             <div class="report-grid">
 """
         for report in structure['yearly']:
+            # Find dashboard file
+            dashboard_file = None
+            other_html = []
+            for file in report['files']['html']:
+                if 'dashboard' in file['name'].lower():
+                    dashboard_file = file
+                else:
+                    other_html.append(file)
+            
             html_content += f"""
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
 """
-            if report['files']['html']:
-                html_content += """
-                    <div class="file-category">
-                        <div class="file-category-title">📈 Visualizations</div>
+            
+            # Dashboard button
+            if dashboard_file:
+                html_content += f"""
+                    <a href="{dashboard_file['path']}" class="dashboard-btn" target="_blank">
+                        <span class="icon">📊</span>View Dashboard
+                    </a>
 """
-                for file in report['files']['html']:
+            
+            # Collapsible for other HTML reports
+            if other_html:
+                html_content += """
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                            <span>📈 Other Visualizations</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
+"""
+                for file in other_html:
                     html_content += f"""
-                        <a href="{file['path']}" class="file-link file-link-html" target="_blank">
-                            <span class="icon">📊</span>{file['name']}
-                            <span class="file-meta">{format_file_size(file['size'])}</span>
-                        </a>
+                                <a href="{file['path']}" class="file-link file-link-html" target="_blank">
+                                    <span class="icon">📊</span>{file['name']}
+                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                </a>
 """
                 html_content += """
+                            </div>
+                        </div>
                     </div>
 """
             
+            # Collapsible for CSV files
             if report['files']['csv']:
                 html_content += """
-                    <div class="file-category">
-                        <div class="file-category-title">📄 Data Exports</div>
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                            <span>📄 Data Exports</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
 """
                 for file in report['files']['csv']:
                     html_content += f"""
-                        <a href="{file['path']}" class="file-link file-link-csv" download>
-                            <span class="icon">📋</span>{file['name']}
-                            <span class="file-meta">{format_file_size(file['size'])}</span>
-                        </a>
+                                <a href="{file['path']}" class="file-link file-link-csv" download>
+                                    <span class="icon">📋</span>{file['name']}
+                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                </a>
 """
                 html_content += """
+                            </div>
+                        </div>
                     </div>
 """
             
@@ -596,39 +748,73 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             <div class="report-grid">
 """
         for report in structure['custom']:
+            # Find dashboard file
+            dashboard_file = None
+            other_html = []
+            for file in report['files']['html']:
+                if 'dashboard' in file['name'].lower():
+                    dashboard_file = file
+                else:
+                    other_html.append(file)
+            
             html_content += f"""
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
 """
-            if report['files']['html']:
-                html_content += """
-                    <div class="file-category">
-                        <div class="file-category-title">📈 Visualizations</div>
+            
+            # Dashboard button
+            if dashboard_file:
+                html_content += f"""
+                    <a href="{dashboard_file['path']}" class="dashboard-btn" target="_blank">
+                        <span class="icon">📊</span>View Dashboard
+                    </a>
 """
-                for file in report['files']['html']:
+            
+            # Collapsible for other HTML reports
+            if other_html:
+                html_content += """
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                            <span>📈 Other Visualizations</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
+"""
+                for file in other_html:
                     html_content += f"""
-                        <a href="{file['path']}" class="file-link file-link-html" target="_blank">
-                            <span class="icon">📊</span>{file['name']}
-                            <span class="file-meta">{format_file_size(file['size'])}</span>
-                        </a>
+                                <a href="{file['path']}" class="file-link file-link-html" target="_blank">
+                                    <span class="icon">📊</span>{file['name']}
+                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                </a>
 """
                 html_content += """
+                            </div>
+                        </div>
                     </div>
 """
             
+            # Collapsible for CSV files
             if report['files']['csv']:
                 html_content += """
-                    <div class="file-category">
-                        <div class="file-category-title">📄 Data Exports</div>
+                    <div class="collapsible">
+                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                            <span>📄 Data Exports</span>
+                            <span class="toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content">
+                            <div class="collapsible-body">
 """
                 for file in report['files']['csv']:
                     html_content += f"""
-                        <a href="{file['path']}" class="file-link file-link-csv" download>
-                            <span class="icon">📋</span>{file['name']}
-                            <span class="file-meta">{format_file_size(file['size'])}</span>
-                        </a>
+                                <a href="{file['path']}" class="file-link file-link-csv" download>
+                                    <span class="icon">📋</span>{file['name']}
+                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                </a>
 """
                 html_content += """
+                            </div>
+                        </div>
                     </div>
 """
             
@@ -662,6 +848,14 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             <p>Org Clock Analyzer Reports Browser</p>
         </div>
     </div>
+    
+    <script>
+        function toggleCollapsible(header) {{
+            const content = header.nextElementSibling;
+            header.classList.toggle('active');
+            content.classList.toggle('active');
+        }}
+    </script>
 </body>
 </html>
 """
