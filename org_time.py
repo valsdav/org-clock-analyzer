@@ -132,8 +132,9 @@ def load_files(files, start_time=None, end_time=None):
         clock_root.children[-1].name = f.split("/")[-1][:-4]
     ## Accumulate the time
     add_time(clock_root)
-    ## Compute relative time
-    relative_time(clock_root, clock_root.totalTime, clock_root.totalTime)
+    ## Compute relative time (guard against zero total)
+    if clock_root.totalTime > 0:
+        relative_time(clock_root, clock_root.totalTime, clock_root.totalTime)
     t1 = time.time()
     print(f"Loaded in {t1-t0:.4f} s")
     return clock_root

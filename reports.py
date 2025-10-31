@@ -253,11 +253,15 @@ class ReportGenerator:
         print(f"\nTIME BY MACRO AREA")
         print(f"{'-'*80}")
         areas_sorted = sorted(areas.items(), key=lambda x: x[1], reverse=True)
+        # Safe percentage helper to avoid division by zero
+        def _pct(v: float) -> float:
+            return (100.0 * v / self.total_time) if self.total_time > 0 else 0.0
+
         area_df = pd.DataFrame([
             {
                 'Area': area,
                 'Hours': f"{time:.2f}",
-                'Percentage': f"{100*time/self.total_time:.1f}%"
+                'Percentage': f"{_pct(time):.1f}%"
             }
             for area, time in areas_sorted if time > 0
         ])
@@ -271,7 +275,7 @@ class ReportGenerator:
             {
                 'Topic': topic,
                 'Hours': f"{time:.2f}",
-                'Percentage': f"{100*time/self.total_time:.1f}%"
+                'Percentage': f"{_pct(time):.1f}%"
             }
             for topic, time in topics_sorted
         ])
@@ -287,7 +291,7 @@ class ReportGenerator:
                 {
                     'Subtask': subtask,
                     'Hours': f"{time:.2f}",
-                    'Percentage': f"{100*time/self.total_time:.1f}%"
+                    'Percentage': f"{_pct(time):.1f}%"
                 }
                 for subtask, time in subtasks_sorted
             ])
@@ -304,13 +308,13 @@ class ReportGenerator:
                 {
                     'Tag': tag,
                     'Hours': f"{time:.2f}",
-                    'Percentage': f"{100*time/self.total_time:.1f}%"
+                    'Percentage': f"{_pct(time):.1f}%"
                 }
-                for tag, time in tags_sorted if time > 0 and (100*time/self.total_time) >= 0.05
+                for tag, time in tags_sorted if time > 0 and _pct(time) >= 0.05
             ])
             print(tag_df.to_string(index=False))
             # Count how many tags were filtered out
-            filtered_count = sum(1 for tag, time in tags_sorted if time > 0 and (100*time/self.total_time) < 0.05)
+            filtered_count = sum(1 for tag, time in tags_sorted if time > 0 and _pct(time) < 0.05)
             if filtered_count > 0:
                 print(f"\n(+ {filtered_count} tags with < 0.1% not shown; see CSV for full details)")
             print(f"Note: Percentages sum to 100% in CSV exports; display rounded to 1 decimal")
@@ -453,7 +457,6 @@ class ReportGenerator:
         
         names = [item[0] for item in tags_sorted]
         values = [item[1] for item in tags_sorted]
-        percentages = [100 * v / self.total_time for v in values]
         
         fig = go.Figure(data=[go.Scatter(
             x=list(range(len(names))),
@@ -657,11 +660,13 @@ class ReportGenerator:
         """Export detailed breakdown to CSV files."""
         output_dir = Path(output_dir)
         output_dir.mkdir(exist_ok=True)
+        # Safe percentage helper
+        pct = (lambda v: (100.0 * v / self.total_time) if self.total_time > 0 else 0.0)
         
         # Export by macro area
         areas = self.analyzer.get_time_by_macro_area()
         areas_df = pd.DataFrame([
-            {'Area': area, 'Hours': time, 'Percentage': 100*time/self.total_time}
+            {'Area': area, 'Hours': time, 'Percentage': pct(time)}
             for area, time in sorted(areas.items(), key=lambda x: x[1], reverse=True)
             if time > 0
         ])
@@ -670,7 +675,7 @@ class ReportGenerator:
         # Export topics
         topics = self.analyzer.get_time_by_topic()
         topics_df = pd.DataFrame([
-            {'Topic': topic, 'Hours': time, 'Percentage': 100*time/self.total_time}
+            {'Topic': topic, 'Hours': time, 'Percentage': pct(time)}
             for topic, time in sorted(topics.items(), key=lambda x: x[1], reverse=True)
         ])
         topics_df.to_csv(output_dir / f"topics_{self.period_name}.csv", index=False)
@@ -690,7 +695,7 @@ class ReportGenerator:
                         'Topic': topic, 
                         'Subtask': subtask, 
                         'Hours': time, 
-                        'Percentage': 100*time/self.total_time
+                        'Percentage': pct(time)
                     })
             
             if subtasks_data:
@@ -701,7 +706,7 @@ class ReportGenerator:
         tags = self.analyzer.get_time_by_tags()
         if tags:
             tags_df = pd.DataFrame([
-                {'Tag': tag, 'Hours': time, 'Percentage': 100*time/self.total_time}
+                {'Tag': tag, 'Hours': time, 'Percentage': pct(time)}
                 for tag, time in sorted(tags.items(), key=lambda x: x[1], reverse=True)
                 if time > 0
             ])

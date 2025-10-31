@@ -267,6 +267,15 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }}
+
+        .card-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            align-items: start;
+        }}
+        .card-left {{ min-width: 0; }}
+        .card-right {{ min-width: 0; }}
         
         .report-card-title {{
             font-size: 1.2em;
@@ -413,6 +422,9 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             .stats {{
                 flex-direction: column;
             }}
+            .card-grid {{
+                grid-template-columns: 1fr;
+            }}
         }}
     </style>
 </head>
@@ -546,6 +558,32 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             html_content += f"""
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
+                    <div class="card-grid">
+                        <div class="card-left">
+"""
+
+            # Inline calendar for this week (7-day period)
+            try:
+                nm = report['name']  # Week_NN_YYYY
+                parts = nm.split('_')
+                week_num = int(parts[1])
+                year_val = int(parts[2])
+                week_start = datetime.fromisocalendar(year_val, week_num, 1)
+                week_end = week_start + timedelta(days=7)
+                cal_snippet = generate_inline_calendar_for_period(
+                    week_start, week_end, files=None, cell_size=8, gap=1,
+                    enable_click=True, id_suffix=f"wk_{week_num}_{year_val}",
+                    weekly_link_prefix_to_weekly='weekly/',
+                    include_month_summary=True,
+                    monthly_link_prefix_to_monthly='monthly/'
+                )
+                html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
+            except Exception:
+                pass
+
+            html_content += """
+                        </div>
+                        <div class="card-right">
 """
             
             # Dashboard button
@@ -605,6 +643,8 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
 """
             
             html_content += """
+                        </div>
+                    </div>
                 </div>
 """
         
@@ -655,20 +695,30 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             html_content += f"""
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
+                    <div class="card-grid">
+                        <div class="card-left">
 """
             # Inline calendar for this month
             try:
-                try:
-                    year, month = map(int, report['name'].split('-'))
-                    start = _dt(year, month, 1)
-                    end = _dt(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
-                    cal_snippet = generate_inline_calendar_for_period(start, end, files=None, cell_size=8, gap=1, enable_click=True, weekly_link_prefix_to_weekly='weekly/')
-                    html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
-                except Exception:
-                    pass
+                year, month = map(int, report['name'].split('-'))
+                start = _dt(year, month, 1)
+                end = _dt(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+                cal_snippet = generate_inline_calendar_for_period(
+                    start, end, files=None, cell_size=8, gap=1,
+                    enable_click=True,
+                    weekly_link_prefix_to_weekly='weekly/',
+                    include_month_summary=True,
+                    monthly_link_prefix_to_monthly='monthly/'
+                )
+                html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
             except Exception:
                 pass
-            
+
+            html_content += """
+                        </div>
+                        <div class="card-right">
+"""
+
             # Dashboard button
             if dashboard_file:
                 html_content += f"""
@@ -726,6 +776,8 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
 """
             
             html_content += """
+                        </div>
+                    </div>
                 </div>
 """
         
@@ -754,6 +806,8 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             html_content += f"""
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
+                    <div class="card-grid">
+                        <div class="card-left">
 """
             # Inline calendar for this year
             try:
@@ -764,11 +818,22 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                     y = int(name)
                 start = _dt(y, 1, 1)
                 end = _dt(y + 1, 1, 1)
-                cal_snippet = generate_inline_calendar_for_period(start, end, files=None, cell_size=6, gap=1, enable_click=True, weekly_link_prefix_to_weekly='weekly/')
+                cal_snippet = generate_inline_calendar_for_period(
+                    start, end, files=None, cell_size=6, gap=1,
+                    enable_click=True,
+                    weekly_link_prefix_to_weekly='weekly/',
+                    include_month_summary=True,
+                    monthly_link_prefix_to_monthly='monthly/'
+                )
                 html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
             except Exception:
                 pass
-            
+
+            html_content += """
+                        </div>
+                        <div class="card-right">
+"""
+
             # Dashboard button
             if dashboard_file:
                 html_content += f"""
@@ -826,6 +891,8 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
 """
             
             html_content += """
+                        </div>
+                    </div>
                 </div>
 """
         
