@@ -270,7 +270,7 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
 
         .card-grid {{
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr; /* equal columns as requested */
             gap: 16px;
             align-items: start;
         }}
@@ -571,13 +571,13 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 week_start = datetime.fromisocalendar(year_val, week_num, 1)
                 week_end = week_start + timedelta(days=7)
                 cal_snippet = generate_inline_calendar_for_period(
-                    week_start, week_end, files=None, cell_size=8, gap=1,
+                    week_start, week_end, files=None, cell_size=14, gap=2,
                     enable_click=True, id_suffix=f"wk_{week_num}_{year_val}",
                     weekly_link_prefix_to_weekly='weekly/',
                     include_month_summary=True,
                     monthly_link_prefix_to_monthly='monthly/'
                 )
-                html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
+                html_content += f"<div style=\"margin-bottom:10px; overflow-x:auto;\">{cal_snippet}</div>"
             except Exception:
                 pass
 
@@ -704,13 +704,13 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 start = _dt(year, month, 1)
                 end = _dt(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
                 cal_snippet = generate_inline_calendar_for_period(
-                    start, end, files=None, cell_size=8, gap=1,
+                    start, end, files=None, cell_size=14, gap=2,
                     enable_click=True,
                     weekly_link_prefix_to_weekly='weekly/',
                     include_month_summary=True,
                     monthly_link_prefix_to_monthly='monthly/'
                 )
-                html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
+                html_content += f"<div style=\"margin-bottom:10px; overflow-x:auto;\">{cal_snippet}</div>"
             except Exception:
                 pass
 
@@ -819,13 +819,13 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 start = _dt(y, 1, 1)
                 end = _dt(y + 1, 1, 1)
                 cal_snippet = generate_inline_calendar_for_period(
-                    start, end, files=None, cell_size=6, gap=1,
+                    start, end, files=None, cell_size=12, gap=2,
                     enable_click=True,
                     weekly_link_prefix_to_weekly='weekly/',
                     include_month_summary=True,
                     monthly_link_prefix_to_monthly='monthly/'
                 )
-                html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
+                html_content += f"<div style=\"margin-bottom:10px; overflow-x:auto;\">{cal_snippet}</div>"
             except Exception:
                 pass
 
