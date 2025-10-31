@@ -65,10 +65,19 @@ ORG_FILES = [
 # Quick start - Generate all common reports
 python quick_reports.py
 
+# All years quick pipeline (generate across every detected year)
+python quick_reports_all_years.py
+
 # Or use the CLI for specific reports
 python reports.py --week          # Current week
 python reports.py --month         # Current month
 python reports.py --year 2024     # Specific year
+
+# All years at once (auto-detected from your org files)
+python generate_reports.py yearly-all
+
+# Or via Python one-liner
+python -c "from generate_reports import generate_yearly_reports_for_all_years; generate_yearly_reports_for_all_years()"
 ```
 
 ### 4. Browse Reports
@@ -99,6 +108,9 @@ python reports.py --custom --start 2024-01-01 --end 2024-03-31 --output reports/
 ```bash
 # Full year with monthly breakdown
 python generate_reports.py yearly 2024
+
+# ALL years with data (discovers years from your org clocks)
+python generate_reports.py yearly-all
 ```
 
 ### Browse All Reports
@@ -165,6 +177,7 @@ Pre-configured report generation with comparison features.
 python generate_reports.py weekly [n_weeks]
 python generate_reports.py monthly [year] [month]
 python generate_reports.py yearly [year]
+python generate_reports.py yearly-all         # Generate yearly reports for all years with data
 python generate_reports.py all
 ```
 
@@ -182,6 +195,26 @@ Generates:
 - Consolidated monthly view (last 6 months in one page)
 - Current year report
 - Index page for browsing
+
+Tip: To build yearly reports for every year, run `python generate_reports.py yearly-all` after this.
+
+### `quick_reports_all_years.py` - All Years Pipeline
+Generate a comprehensive set of reports across ALL detected years.
+
+What it does:
+- Yearly reports for each year
+- Consolidated monthly page for each year (12 months per page)
+- Consolidated weekly page for each year (all weeks per page)
+- Individual monthly reports for months that have data
+- Consolidated weekly page for each month (all weeks touching the month)
+- One big all-years calendar heatmap
+- Regenerates the index page
+
+Usage:
+
+```bash
+python quick_reports_all_years.py
+```
 
 ### `generate_index.py` - Index Page Generator
 Create a browsable HTML index of all your reports.

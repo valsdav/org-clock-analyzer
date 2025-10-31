@@ -248,6 +248,36 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             border-bottom: 3px solid #667eea;
         }}
         
+        .year-calendar-row {{
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }}
+        
+        .year-calendar-row:hover {{
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }}
+        
+        .year-calendar-row h3 {{
+            margin-bottom: 15px;
+            color: #667eea;
+            font-size: 1.4em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+        
+        .year-calendar-row h3::before {{
+            content: "📅";
+            font-size: 1.2em;
+        }}
+        
         .report-grid {{
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -449,72 +479,81 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             </div>
         </div>
 """
-    # Add top big calendar widget covering all available months in reports
+    # Add calendar section with one row per year
     try:
-        # Determine range from monthly reports if available; fallback to yearly or weekly
-        start = None
-        end = None
+        # Collect all years from reports
+        years_set = set()
+        
         if structure['monthly']:
-            names = [r['name'] for r in structure['monthly']]
-            earliest = min(names)
-            latest = max(names)
-            y1, m1 = map(int, earliest.split('-'))
-            y2, m2 = map(int, latest.split('-'))
-            start = _dt(y1, m1, 1)
-            end = _dt(y2 + (1 if m2 == 12 else 0), 1 if m2 == 12 else m2 + 1, 1)
-        elif structure['yearly']:
-            years = []
+            for r in structure['monthly']:
+                try:
+                    y, m = map(int, r['name'].split('-'))
+                    years_set.add(y)
+                except Exception:
+                    pass
+        
+        if structure['yearly']:
             for r in structure['yearly']:
                 nm = r['name']
                 if nm.lower().startswith('year_'):
-                    years.append(int(nm.split('_', 1)[1]))
-                else:
                     try:
-                        years.append(int(nm))
+                        years_set.add(int(nm.split('_', 1)[1]))
                     except Exception:
                         pass
-            if years:
-                y1 = min(years)
-                y2 = max(years)
-                start = _dt(y1, 1, 1)
-                end = _dt(y2 + 1, 1, 1)
-        elif structure['weekly']:
-            years = []
+                else:
+                    try:
+                        years_set.add(int(nm))
+                    except Exception:
+                        pass
+        
+        if structure['weekly']:
             for r in structure['weekly']:
                 nm = r['name']  # Week_NN_YYYY
                 try:
                     parts = nm.split('_')
-                    years.append(int(parts[-1]))
+                    years_set.add(int(parts[-1]))
                 except Exception:
                     pass
-            if years:
-                y1 = min(years)
-                y2 = max(years)
-                start = _dt(y1, 1, 1)
-                end = _dt(y2 + 1, 1, 1)
-        # If range found, render calendar
-        if start and end:
-            try:
-                cal_snippet_global = generate_inline_calendar_for_period(
-                    start, end,
-                    files=None,
-                    cell_size=12, gap=2,
-                    enable_click=True,
-                    id_suffix='global',
-                    weekly_link_prefix_to_weekly='weekly/',
-                    include_month_summary=True,
-                    monthly_link_prefix_to_monthly='monthly/'
-                )
-                html_content += f"""
+        
+        # Generate calendar section with one row per year
+        if years_set:
+            years_sorted = sorted(years_set, reverse=True)  # Most recent first
+            
+            html_content += """
         <div class="section">
-            <h2 class="section-title">🗓️ Activity Calendar (All Years)</h2>
-            <div style="overflow-x:auto;">{cal_snippet_global}</div>
+            <h2 class="section-title">🗓️ Activity Calendar by Year</h2>
+"""
+            
+            for year in years_sorted:
+                try:
+                    year_start = _dt(year, 1, 1)
+                    year_end = _dt(year + 1, 1, 1)
+                    
+                    cal_snippet = generate_inline_calendar_for_period(
+                        year_start, year_end,
+                        files=None,
+                        cell_size=12, gap=2,
+                        enable_click=True,
+                        id_suffix=f'year_{year}',
+                        weekly_link_prefix_to_weekly='weekly/',
+                        include_month_summary=True,
+                        monthly_link_prefix_to_monthly='monthly/'
+                    )
+                    
+                    html_content += f"""
+            <div class="year-calendar-row">
+                <h3>{year}</h3>
+                <div style="overflow-x:auto;">{cal_snippet}</div>
+            </div>
+"""
+                except Exception as e:
+                    print(f"Warning: Failed to generate calendar for year {year}: {e}")
+            
+            html_content += """
         </div>
 """
-            except Exception:
-                pass
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Warning: Failed to generate calendar section: {e}")
     
     # Check for consolidated weekly report
     consolidated_weekly = reports_path / "weekly_consolidated.html"

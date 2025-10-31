@@ -13,6 +13,7 @@ from plotly.subplots import make_subplots
 
 import org_time
 from reports import TimeAnalyzer, ReportGenerator, ORG_FILES
+from orgparse import load as org_load
 
 
 def generate_last_n_weeks_comparison(n=4, output_dir="reports/weekly_comparison"):
@@ -385,6 +386,56 @@ def generate_yearly_report(year=None, output_dir="reports/yearly"):
     print(f"\nYearly report generated in: {output_dir}")
 
 
+def get_years_with_data(files=None):
+    """Scan org files and return a sorted list of all years that have at least one closed clock entry."""
+    files = files or ORG_FILES
+    years = set()
+
+    def _walk(node):
+        # Collect years from clock entries
+        if hasattr(node, "clock") and node.clock:
+            for cl in node.clock:
+                # Only consider closed clocks
+                if getattr(cl, 'end', None) is None:
+                    continue
+                try:
+                    years.add(cl.start.year)
+                    years.add(cl.end.year)
+                except Exception:
+                    # Skip malformed entries
+                    continue
+        # Recurse
+        for ch in getattr(node, 'children', []) or []:
+            _walk(ch)
+
+    for f in files:
+        try:
+            root = org_load(f)
+        except Exception as e:
+            print(f"Warning: failed to parse {f}: {e}")
+            continue
+        _walk(root)
+
+    return sorted(y for y in years if isinstance(y, int))
+
+
+def generate_yearly_reports_for_all_years(output_dir="reports/yearly"):
+    """Generate yearly reports for every year found across your org files."""
+    years = get_years_with_data()
+    if not years:
+        print("No years with data found in the configured ORG_FILES.")
+        return
+
+    print(f"\n{'='*80}")
+    print(f"GENERATING YEARLY REPORTS FOR ALL YEARS: {years[0]} .. {years[-1]}")
+    print(f"{'='*80}\n")
+    for y in years:
+        try:
+            generate_yearly_report(y, output_dir=output_dir)
+        except Exception as e:
+            print(f"✗ Error generating year {y}: {e}")
+
+
 def generate_custom_comparison(periods, output_dir="reports/custom_comparison"):
     """
     Generate comparison report for custom periods.
@@ -467,6 +518,9 @@ if __name__ == "__main__":
             # Generate current year or specified year
             year = int(sys.argv[2]) if len(sys.argv) > 2 else None
             generate_yearly_report(year)
+        elif command == "yearly-all":
+            # Generate yearly reports for all years discovered in ORG_FILES
+            generate_yearly_reports_for_all_years()
         
         elif command == "all":
             # Generate all reports
@@ -477,7 +531,7 @@ if __name__ == "__main__":
         
         else:
             print(f"Unknown command: {command}")
-            print("Usage: python generate_reports.py [weekly|monthly|yearly|all] [args...]")
+            print("Usage: python generate_reports.py [weekly|monthly|yearly|yearly-all|all] [args...]")
     
     else:
         # Default: generate current week report
