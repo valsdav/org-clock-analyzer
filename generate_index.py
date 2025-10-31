@@ -247,6 +247,27 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             padding-bottom: 10px;
             border-bottom: 3px solid #667eea;
         }}
+
+        /* Tabs */
+        .tabs {{ margin-top: 10px; }}
+        .tab-buttons {{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }}
+        .tab-buttons button {{
+            border: 1px solid #dfe3ea;
+            background: #f5f7fb;
+            color: #444;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }}
+        .tab-buttons button.active {{
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+            box-shadow: 0 2px 6px rgba(102,126,234,0.35);
+        }}
+        .tab-panel {{ display: none; }}
+        .tab-panel.active {{ display: block; }}
         
         .year-calendar-row {{
             margin-bottom: 30px;
@@ -555,390 +576,307 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
     except Exception as e:
         print(f"Warning: Failed to generate calendar section: {e}")
     
-    # Check for consolidated weekly report
-    consolidated_weekly = reports_path / "weekly_consolidated.html"
-    has_consolidated = consolidated_weekly.exists()
-    
-    # Weekly Reports Section
-    if structure['weekly'] or has_consolidated:
+    # Weekly Reports Section (grouped by year with month tabs)
+    # Detect consolidated pages
+    consolidated_weekly_global = reports_path / "weekly_consolidated.html"
+    consolidated_weekly_year = {y: (reports_path / f"weekly_consolidated_{y}.html") for y in range(1900, 3000)}
+    consolidated_weekly_month = lambda y,m: (reports_path / f"weekly_consolidated_{y}-{m:02d}.html")
+
+    if structure['weekly'] or consolidated_weekly_global.exists():
         html_content += """
         <div class="section">
             <h2 class="section-title">📅 Weekly Reports</h2>
 """
-        
-        # Add consolidated weekly report link if it exists
-        if has_consolidated:
-            file_size = consolidated_weekly.stat().st_size
+        # Global weekly comparison
+        if consolidated_weekly_global.exists():
             html_content += f"""
             <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px;">
                 <a href="weekly_consolidated.html" style="color: white; text-decoration: none; display: flex; align-items: center; justify-content: space-between;" target="_blank">
                     <div>
-                        <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 5px;">📊 Consolidated Weekly View</div>
-                        <div style="opacity: 0.9;">All weekly reports in a single page</div>
+                        <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 5px;">📊 Weekly Comparison (All)</div>
+                        <div style="opacity: 0.9;">All recent weeks in one page</div>
                     </div>
                     <div style="font-size: 1.5em;">→</div>
                 </a>
             </div>
 """
-        
-        html_content += """
-            <div class="report-grid">
-"""
+
+        # Group weeks by year and month
+        weekly_grouped = {}
         for report in structure['weekly']:
-            # Find dashboard file
-            dashboard_file = None
-            other_html = []
-            for file in report['files']['html']:
-                if 'dashboard' in file['name'].lower():
-                    dashboard_file = file
-                else:
-                    other_html.append(file)
-            
-            html_content += f"""
-                <div class="report-card">
-                    <div class="report-card-title">{report['name']}</div>
-                    <div class="card-grid">
-                        <div class="card-left">
-"""
-
-            # Inline calendar for this week (7-day period)
+            nm = report['name']  # Week_NN_YYYY
             try:
-                nm = report['name']  # Week_NN_YYYY
                 parts = nm.split('_')
-                week_num = int(parts[1])
-                year_val = int(parts[2])
-                week_start = datetime.fromisocalendar(year_val, week_num, 1)
-                week_end = week_start + timedelta(days=7)
-                cal_snippet = generate_inline_calendar_for_period(
-                    week_start, week_end, files=None, cell_size=14, gap=2,
-                    enable_click=True, id_suffix=f"wk_{week_num}_{year_val}",
-                    weekly_link_prefix_to_weekly='weekly/',
-                    include_month_summary=True,
-                    monthly_link_prefix_to_monthly='monthly/'
-                )
-                html_content += f"<div style=\"margin-bottom:10px; overflow-x:auto;\">{cal_snippet}</div>"
+                wk = int(parts[1]); yr = int(parts[2])
+                wk_start = datetime.fromisocalendar(yr, wk, 1)
+                mon = wk_start.month
             except Exception:
-                pass
+                continue
+            weekly_grouped.setdefault(yr, {}).setdefault(mon, []).append((report, wk_start))
 
-            html_content += """
-                        </div>
-                        <div class="card-right">
-"""
-            
-            # Dashboard button
-            if dashboard_file:
-                html_content += f"""
-                    <a href="{dashboard_file['path']}" class="dashboard-btn" target="_blank">
-                        <span class="icon">📊</span>View Dashboard
-                    </a>
-"""
-            
-            # Collapsible for other HTML reports
-            if other_html:
-                html_content += """
-                    <div class="collapsible">
-                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                            <span>📈 Other Visualizations</span>
-                            <span class="toggle">▼</span>
-                        </div>
-                        <div class="collapsible-content">
-                            <div class="collapsible-body">
-"""
-                for file in other_html:
-                    html_content += f"""
-                                <a href="{file['path']}" class="file-link file-link-html" target="_blank">
-                                    <span class="icon">📊</span>{file['name']}
-                                    <span class="file-meta">{format_file_size(file['size'])}</span>
-                                </a>
-"""
-                html_content += """
-                            </div>
-                        </div>
-                    </div>
-"""
-            
-            # Collapsible for CSV files
-            if report['files']['csv']:
-                html_content += """
-                    <div class="collapsible">
-                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                            <span>📄 Data Exports</span>
-                            <span class="toggle">▼</span>
-                        </div>
-                        <div class="collapsible-content">
-                            <div class="collapsible-body">
-"""
-                for file in report['files']['csv']:
-                    html_content += f"""
-                                <a href="{file['path']}" class="file-link file-link-csv" download>
-                                    <span class="icon">📋</span>{file['name']}
-                                    <span class="file-meta">{format_file_size(file['size'])}</span>
-                                </a>
-"""
-                html_content += """
-                            </div>
-                        </div>
-                    </div>
-"""
-            
-            html_content += """
-                        </div>
-                    </div>
-                </div>
-"""
-        
-        html_content += """
+        for yr in sorted(weekly_grouped.keys(), reverse=True):
+            # Year header with consolidated button if available
+            yr_cons = reports_path / f"weekly_consolidated_{yr}.html"
+            yr_btn = f"<a href='weekly_consolidated_{yr}.html' class='dashboard-btn' target='_blank'><span class='icon'>📊</span>Weekly Comparison {yr}</a>" if yr_cons.exists() else ""
+            html_content += f"""
+            <div style="display:flex; align-items:center; justify-content:space-between; margin: 12px 0 6px 0;">
+                <h3 style="color:#333;">Year {yr}</h3>
+                <div style="min-width:260px;">{yr_btn}</div>
             </div>
-        </div>
+            <div class="tabs" id="weekly-tabs-{yr}">
+                <div class="tab-buttons">
 """
+            months = sorted(weekly_grouped[yr].keys())
+            for i, m in enumerate(months):
+                label = _dt(yr, m, 1).strftime('%b')
+                active = 'active' if i == 0 else ''
+                html_content += f"<button class='tab-button {active}' onclick=\"showTab('weekly-tabs-{yr}','weekly-{yr}-{m}')\">{label}</button>"
+            html_content += "</div>"
+
+            # Panels per month
+            for i, m in enumerate(months):
+                panel_active = 'active' if i == 0 else ''
+                html_content += f"<div class='tab-panel {panel_active}' id='weekly-{yr}-{m}'>"
+
+                # Month consolidated button if present
+                mon_cons = reports_path / f"weekly_consolidated_{yr}-{m:02d}.html"
+                if mon_cons.exists():
+                    html_content += f"""
+                    <div style="margin: 10px 0 16px 0;">
+                        <a href="weekly_consolidated_{yr}-{m:02d}.html" class="dashboard-btn" target="_blank">
+                            <span class="icon">📊</span>Weekly Comparison {yr}-{m:02d}
+                        </a>
+                    </div>
+"""
+                # Cards grid for that month
+                html_content += "<div class='report-grid'>"
+                # Sort weeks within month by start date descending
+                for (report, wk_start) in sorted(weekly_grouped[yr][m], key=lambda t: t[1], reverse=True):
+                    # Build card (reuse previous pattern)
+                    dashboard_file = None
+                    other_html = []
+                    for file in report['files']['html']:
+                        if 'dashboard' in file['name'].lower():
+                            dashboard_file = file
+                        else:
+                            other_html.append(file)
+                    nm = report['name']
+                    parts = nm.split('_')
+                    week_num = int(parts[1]); year_val = int(parts[2])
+                    week_start = wk_start
+                    week_end = week_start + timedelta(days=7)
+                    html_content += f"""
+                    <div class="report-card">
+                        <div class="report-card-title">{report['name']}</div>
+                        <div class="card-grid">
+                            <div class="card-left">
+                    """
+                    try:
+                        cal_snippet = generate_inline_calendar_for_period(
+                            week_start, week_end, files=None, cell_size=14, gap=2,
+                            enable_click=True, id_suffix=f"wk_{week_num}_{year_val}",
+                            weekly_link_prefix_to_weekly='weekly/',
+                            include_month_summary=True,
+                            monthly_link_prefix_to_monthly='monthly/'
+                        )
+                        html_content += f"<div style=\"margin-bottom:10px; overflow-x:auto;\">{cal_snippet}</div>"
+                    except Exception:
+                        pass
+                    html_content += """
+                            </div>
+                            <div class="card-right">
+                    """
+                    if dashboard_file:
+                        html_content += f"""
+                                <a href="{dashboard_file['path']}" class="dashboard-btn" target="_blank">
+                                    <span class="icon">📊</span>View Dashboard
+                                </a>
+                        """
+                    # Other visuals
+                    if other_html:
+                        html_content += """
+                                <div class="collapsible">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span>📈 Other Visualizations</span>
+                                        <span class="toggle">▼</span>
+                                    </div>
+                                    <div class="collapsible-content">
+                                        <div class="collapsible-body">
+                        """
+                        for file in other_html:
+                            html_content += f"""
+                                                <a href="{file['path']}" class="file-link file-link-html" target="_blank">
+                                                    <span class="icon">📊</span>{file['name']}
+                                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                                </a>
+                            """
+                        html_content += """
+                                        </div>
+                                    </div>
+                                </div>
+                        """
+                    # CSVs
+                    if report['files']['csv']:
+                        html_content += """
+                                <div class="collapsible">
+                                    <div class="collapsible-header" onclick="toggleCollapsible(this)">
+                                        <span>📄 Data Exports</span>
+                                        <span class="toggle">▼</span>
+                                    </div>
+                                    <div class="collapsible-content">
+                                        <div class="collapsible-body">
+                        """
+                        for file in report['files']['csv']:
+                            html_content += f"""
+                                                <a href="{file['path']}" class="file-link file-link-csv" download>
+                                                    <span class="icon">📋</span>{file['name']}
+                                                    <span class="file-meta">{format_file_size(file['size'])}</span>
+                                                </a>
+                            """
+                        html_content += """
+                                        </div>
+                                    </div>
+                                </div>
+                        """
+                    html_content += """
+                            </div>
+                        </div>
+                    </div>
+                    """
+                html_content += "</div>"  # report-grid
+                html_content += "</div>"  # tab-panel
+
+            html_content += "</div>"  # tabs
+        html_content += "</div>"  # section
     
-    # Check for consolidated monthly report
-    consolidated_monthly = reports_path / "monthly_consolidated.html"
-    has_consolidated_monthly = consolidated_monthly.exists()
-    
-    # Monthly Reports Section
-    if structure['monthly'] or has_consolidated_monthly:
+    # Monthly Reports Section (grouped by year with comparison button)
+    consolidated_monthly_global = reports_path / "monthly_consolidated.html"
+    if structure['monthly'] or consolidated_monthly_global.exists():
         html_content += """
         <div class="section">
             <h2 class="section-title">📆 Monthly Reports</h2>
-"""
-        
-        # Add consolidated monthly report link if it exists
-        if has_consolidated_monthly:
-            file_size = consolidated_monthly.stat().st_size
+        """
+        if consolidated_monthly_global.exists():
             html_content += f"""
             <div style="margin-bottom: 20px; padding: 15px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 8px;">
                 <a href="monthly_consolidated.html" style="color: white; text-decoration: none; display: flex; align-items: center; justify-content: space-between;" target="_blank">
                     <div>
-                        <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 5px;">📅 Consolidated Monthly View</div>
-                        <div style="opacity: 0.9;">All monthly reports in a single dashboard</div>
+                        <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 5px;">📅 Monthly Comparison (Recent)</div>
+                        <div style="opacity: 0.9;">Recent months in a single dashboard</div>
                     </div>
                     <div style="font-size: 1.5em;">→</div>
                 </a>
             </div>
-"""
-        
-        html_content += """
-            <div class="report-grid">
-"""
+            """
+
+        # Group months by year
+        monthly_grouped = {}
         for report in structure['monthly']:
-            # Find dashboard file
-            dashboard_file = None
-            other_html = []
-            for file in report['files']['html']:
-                if 'dashboard' in file['name'].lower():
-                    dashboard_file = file
-                else:
-                    other_html.append(file)
-            
-            html_content += f"""
-                <div class="report-card">
-                    <div class="report-card-title">{report['name']}</div>
-                    <div class="card-grid">
-                        <div class="card-left">
-"""
-            # Inline calendar for this month
             try:
-                year, month = map(int, report['name'].split('-'))
-                start = _dt(year, month, 1)
-                end = _dt(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
-                cal_snippet = generate_inline_calendar_for_period(
-                    start, end, files=None, cell_size=14, gap=2,
-                    enable_click=True,
-                    weekly_link_prefix_to_weekly='weekly/',
-                    include_month_summary=True,
-                    monthly_link_prefix_to_monthly='monthly/'
-                )
-                html_content += f"<div style=\"margin-bottom:10px; overflow-x:auto;\">{cal_snippet}</div>"
+                y, m = map(int, report['name'].split('-'))
             except Exception:
-                pass
+                continue
+            monthly_grouped.setdefault(y, []).append(report)
 
-            html_content += """
-                        </div>
-                        <div class="card-right">
-"""
-
-            # Dashboard button
-            if dashboard_file:
+        for yr in sorted(monthly_grouped.keys(), reverse=True):
+            yr_cons = reports_path / f"monthly_consolidated_{yr}.html"
+            yr_btn = f"<a href='monthly_consolidated_{yr}.html' class='dashboard-btn' target='_blank'><span class='icon'>📅</span>Monthly Comparison {yr}</a>" if yr_cons.exists() else ""
+            html_content += f"""
+            <div style=\"display:flex; align-items:center; justify-content:space-between; margin: 12px 0 6px 0;\"> 
+                <h3 style=\"color:#333;\">Year {yr}</h3>
+                <div style=\"min-width:260px;\">{yr_btn}</div>
+            </div>
+            <div class='report-grid'>
+            """
+            for report in sorted(monthly_grouped[yr], key=lambda r: r['name'], reverse=True):
+                dashboard_file = None
+                other_html = []
+                for file in report['files']['html']:
+                    if 'dashboard' in file['name'].lower():
+                        dashboard_file = file
+                    else:
+                        other_html.append(file)
                 html_content += f"""
-                    <a href="{dashboard_file['path']}" class="dashboard-btn" target="_blank">
-                        <span class="icon">📊</span>View Dashboard
-                    </a>
-"""
-            
-            # Collapsible for other HTML reports
-            if other_html:
+                <div class=\"report-card\">
+                    <div class=\"report-card-title\">{report['name']}</div>
+                    <div class=\"card-grid\">
+                        <div class=\"card-left\">
+                """
+                try:
+                    year, month = map(int, report['name'].split('-'))
+                    start = _dt(year, month, 1)
+                    end = _dt(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+                    cal_snippet = generate_inline_calendar_for_period(
+                        start, end, files=None, cell_size=14, gap=2,
+                        enable_click=True,
+                        weekly_link_prefix_to_weekly='weekly/',
+                        include_month_summary=True,
+                        monthly_link_prefix_to_monthly='monthly/'
+                    )
+                    html_content += f"<div style=\\\"margin-bottom:10px; overflow-x:auto;\\\">{cal_snippet}</div>"
+                except Exception:
+                    pass
                 html_content += """
-                    <div class="collapsible">
-                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                            <span>📈 Other Visualizations</span>
-                            <span class="toggle">▼</span>
                         </div>
-                        <div class="collapsible-content">
-                            <div class="collapsible-body">
-"""
-                for file in other_html:
+                        <div class=\"card-right\">
+                """
+                if dashboard_file:
                     html_content += f"""
-                                <a href="{file['path']}" class="file-link file-link-html" target="_blank">
-                                    <span class="icon">📊</span>{file['name']}
-                                    <span class="file-meta">{format_file_size(file['size'])}</span>
-                                </a>
-"""
-                html_content += """
+                            <a href=\"{dashboard_file['path']}\" class=\"dashboard-btn\" target=\"_blank\">
+                                <span class=\"icon\">📊</span>View Dashboard
+                            </a>
+                    """
+                if other_html:
+                    html_content += """
+                            <div class=\"collapsible\">
+                                <div class=\"collapsible-header\" onclick=\"toggleCollapsible(this)\"> 
+                                    <span>📈 Other Visualizations</span>
+                                    <span class=\"toggle\">▼</span>
+                                </div>
+                                <div class=\"collapsible-content\">
+                                    <div class=\"collapsible-body\">
+                    """
+                    for file in other_html:
+                        html_content += f"""
+                                            <a href=\"{file['path']}\" class=\"file-link file-link-html\" target=\"_blank\">
+                                                <span class=\"icon\">📊</span>{file['name']}
+                                                <span class=\"file-meta\">{format_file_size(file['size'])}</span>
+                                            </a>
+                        """
+                    html_content += """
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-"""
-            
-            # Collapsible for CSV files
-            if report['files']['csv']:
-                html_content += """
-                    <div class="collapsible">
-                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                            <span>📄 Data Exports</span>
-                            <span class="toggle">▼</span>
-                        </div>
-                        <div class="collapsible-content">
-                            <div class="collapsible-body">
-"""
-                for file in report['files']['csv']:
-                    html_content += f"""
-                                <a href="{file['path']}" class="file-link file-link-csv" download>
-                                    <span class="icon">📋</span>{file['name']}
-                                    <span class="file-meta">{format_file_size(file['size'])}</span>
-                                </a>
-"""
-                html_content += """
+                    """
+                if report['files']['csv']:
+                    html_content += """
+                            <div class=\"collapsible\">
+                                <div class=\"collapsible-header\" onclick=\"toggleCollapsible(this)\">
+                                    <span>📄 Data Exports</span>
+                                    <span class=\"toggle\">▼</span>
+                                </div>
+                                <div class=\"collapsible-content\">
+                                    <div class=\"collapsible-body\">
+                    """
+                    for file in report['files']['csv']:
+                        html_content += f"""
+                                            <a href=\"{file['path']}\" class=\"file-link file-link-csv\" download>
+                                                <span class=\"icon\">📋</span>{file['name']}
+                                                <span class=\"file-meta\">{format_file_size(file['size'])}</span>
+                                            </a>
+                        """
+                    html_content += """
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-"""
-            
-            html_content += """
+                    """
+                html_content += """
                         </div>
                     </div>
                 </div>
-"""
-        
-        html_content += """
-            </div>
-        </div>
-"""
-    
-    # Yearly Reports Section
-    if structure['yearly']:
-        html_content += """
-        <div class="section">
-            <h2 class="section-title">📊 Yearly Reports</h2>
-            <div class="report-grid">
-"""
-        for report in structure['yearly']:
-            # Find dashboard file
-            dashboard_file = None
-            other_html = []
-            for file in report['files']['html']:
-                if 'dashboard' in file['name'].lower():
-                    dashboard_file = file
-                else:
-                    other_html.append(file)
-            
-            html_content += f"""
-                <div class="report-card">
-                    <div class="report-card-title">{report['name']}</div>
-                    <div class="card-grid">
-                        <div class="card-left">
-"""
-            # Inline calendar for this year
-            try:
-                name = report['name']
-                if name.lower().startswith('year_'):
-                    y = int(name.split('_', 1)[1])
-                else:
-                    y = int(name)
-                start = _dt(y, 1, 1)
-                end = _dt(y + 1, 1, 1)
-                cal_snippet = generate_inline_calendar_for_period(
-                    start, end, files=None, cell_size=12, gap=2,
-                    enable_click=True,
-                    weekly_link_prefix_to_weekly='weekly/',
-                    include_month_summary=True,
-                    monthly_link_prefix_to_monthly='monthly/'
-                )
-                html_content += f"<div style=\"margin-bottom:10px; overflow-x:auto;\">{cal_snippet}</div>"
-            except Exception:
-                pass
-
-            html_content += """
-                        </div>
-                        <div class="card-right">
-"""
-
-            # Dashboard button
-            if dashboard_file:
-                html_content += f"""
-                    <a href="{dashboard_file['path']}" class="dashboard-btn" target="_blank">
-                        <span class="icon">📊</span>View Dashboard
-                    </a>
-"""
-            
-            # Collapsible for other HTML reports
-            if other_html:
-                html_content += """
-                    <div class="collapsible">
-                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                            <span>📈 Other Visualizations</span>
-                            <span class="toggle">▼</span>
-                        </div>
-                        <div class="collapsible-content">
-                            <div class="collapsible-body">
-"""
-                for file in other_html:
-                    html_content += f"""
-                                <a href="{file['path']}" class="file-link file-link-html" target="_blank">
-                                    <span class="icon">📊</span>{file['name']}
-                                    <span class="file-meta">{format_file_size(file['size'])}</span>
-                                </a>
-"""
-                html_content += """
-                            </div>
-                        </div>
-                    </div>
-"""
-            
-            # Collapsible for CSV files
-            if report['files']['csv']:
-                html_content += """
-                    <div class="collapsible">
-                        <div class="collapsible-header" onclick="toggleCollapsible(this)">
-                            <span>📄 Data Exports</span>
-                            <span class="toggle">▼</span>
-                        </div>
-                        <div class="collapsible-content">
-                            <div class="collapsible-body">
-"""
-                for file in report['files']['csv']:
-                    html_content += f"""
-                                <a href="{file['path']}" class="file-link file-link-csv" download>
-                                    <span class="icon">📋</span>{file['name']}
-                                    <span class="file-meta">{format_file_size(file['size'])}</span>
-                                </a>
-"""
-                html_content += """
-                            </div>
-                        </div>
-                    </div>
-"""
-            
-            html_content += """
-                        </div>
-                    </div>
-                </div>
-"""
-        
-        html_content += """
-            </div>
-        </div>
-"""
+                """
+            html_content += "</div>"  # report-grid
+        html_content += "</div>"  # section
     
     # Custom Reports Section
     if structure['custom']:
@@ -1054,6 +992,19 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
             const content = header.nextElementSibling;
             header.classList.toggle('active');
             content.classList.toggle('active');
+        }}
+        function showTab(groupId, panelId) {{
+            const group = document.getElementById(groupId);
+            if (!group) return;
+            const buttons = group.querySelectorAll('.tab-buttons .tab-button');
+            const panels = group.querySelectorAll('.tab-panel');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            panels.forEach(p => p.classList.remove('active'));
+            // Activate clicked button (by matching its onclick arg)
+            const targetBtn = Array.from(buttons).find(b => (b.getAttribute('onclick')||'').includes(panelId));
+            if (targetBtn) targetBtn.classList.add('active');
+            const panel = document.getElementById(panelId);
+            if (panel) panel.classList.add('active');
         }}
     </script>
 </body>
