@@ -15,6 +15,7 @@ import pandas as pd
 
 import org_time
 from reports import TimeAnalyzer, ORG_FILES
+from calendar_heatmap import generate_inline_calendar_for_period
 
 
 def generate_consolidated_monthly_report(n_months=6, output_file="reports/monthly_consolidated.html", year=None):
@@ -879,6 +880,11 @@ def generate_month_section(month_data):
     days_in_month = month_data.get('days_in_month', 0)
     
     if total_hours == 0:
+        # Still show a mini calendar for the month
+        try:
+            cal_snippet = generate_inline_calendar_for_period(month_data['start_date'], month_data['end_date'], files=None, cell_size=8, gap=1, enable_click=True, weekly_link_prefix_to_weekly='weekly/')
+        except Exception:
+            cal_snippet = ''
         return f"""
         <div class="month-section">
             <div class="month-header">
@@ -886,6 +892,7 @@ def generate_month_section(month_data):
                     <div class="month-title">{month_name}</div>
                 </div>
             </div>
+            <div style="margin:8px 0;">{cal_snippet}</div>
             <div class="empty-month">
                 No time tracked this month
             </div>
@@ -955,6 +962,12 @@ def generate_month_section(month_data):
     else:
         pie_html = ""
     
+    # Calendar snippet for this month
+    try:
+        cal_snippet = generate_inline_calendar_for_period(month_data['start_date'], month_data['end_date'], files=None, cell_size=8, gap=1, enable_click=True, weekly_link_prefix_to_weekly='weekly/')
+    except Exception:
+        cal_snippet = ''
+
     return f"""
         <div class="month-section">
             <div class="month-header">
@@ -966,6 +979,7 @@ def generate_month_section(month_data):
                     <div class="month-avg">{avg_per_day:.2f}h/day avg ({days_in_month} days)</div>
                 </div>
             </div>
+            <div style="margin:8px 0;">{cal_snippet}</div>
             
             <div class="stats-grid">
                 <div class="stat-card">

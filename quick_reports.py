@@ -20,6 +20,7 @@ from generate_reports import (
 from generate_index import generate_index_html
 from weekly_consolidated import generate_consolidated_weekly_report
 from monthly_consolidated import generate_consolidated_monthly_report
+from calendar_heatmap import generate_calendar_heatmap
 
 
 def main():
@@ -35,6 +36,7 @@ def main():
     print("  3. Last 12 individual monthly reports")
     print("  4. Consolidated monthly view (last 12 months)")
     print("  5. Current year report")
+    print("  6. Calendar heatmap (last 12 months)")
     print()
     
     response = input("Continue? [Y/n]: ").strip().lower()
@@ -92,7 +94,16 @@ def main():
         print(f"✗ Error: {e}")
     
     print("\n" + "="*70)
-    print("STEP 6/6: Generating index page...")
+    print("STEP 6/7: Generating calendar heatmap (last 12 months)...")
+    print("="*70)
+    try:
+        generate_calendar_heatmap(output_file="reports/calendar/last_12_months.html", months=12)
+        print("✓ Calendar heatmap complete!")
+    except Exception as e:
+        print(f"✗ Error: {e}")
+
+    print("\n" + "="*70)
+    print("STEP 7/7: Generating index page...")
     print("="*70)
     try:
         index_path = generate_index_html("reports/index.html", "reports")

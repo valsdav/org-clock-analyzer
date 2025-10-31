@@ -8,6 +8,9 @@ import os
 from pathlib import Path
 from datetime import datetime
 import json
+from datetime import datetime as _dt
+from datetime import timedelta
+from calendar_heatmap import generate_inline_calendar_for_period
 
 
 def scan_reports_directory(reports_dir="reports"):
@@ -587,6 +590,18 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
 """
+            # Inline calendar for this month
+            try:
+                try:
+                    year, month = map(int, report['name'].split('-'))
+                    start = _dt(year, month, 1)
+                    end = _dt(year + (1 if month == 12 else 0), 1 if month == 12 else month + 1, 1)
+                    cal_snippet = generate_inline_calendar_for_period(start, end, files=None, cell_size=8, gap=1, enable_click=True, weekly_link_prefix_to_weekly='weekly/')
+                    html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
+                except Exception:
+                    pass
+            except Exception:
+                pass
             
             # Dashboard button
             if dashboard_file:
@@ -674,6 +689,19 @@ def generate_index_html(output_file="reports/index.html", reports_dir="reports")
                 <div class="report-card">
                     <div class="report-card-title">{report['name']}</div>
 """
+            # Inline calendar for this year
+            try:
+                name = report['name']
+                if name.lower().startswith('year_'):
+                    y = int(name.split('_', 1)[1])
+                else:
+                    y = int(name)
+                start = _dt(y, 1, 1)
+                end = _dt(y + 1, 1, 1)
+                cal_snippet = generate_inline_calendar_for_period(start, end, files=None, cell_size=6, gap=1, enable_click=True, weekly_link_prefix_to_weekly='weekly/')
+                html_content += f"<div style=\"margin-bottom:10px;\">{cal_snippet}</div>"
+            except Exception:
+                pass
             
             # Dashboard button
             if dashboard_file:

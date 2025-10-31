@@ -601,6 +601,53 @@ class ReportGenerator:
         if output_file:
             fig.write_html(output_file)
             add_nav_to_html(output_file)
+            # Optionally insert a calendar heatmap for monthly/yearly dashboards
+            try:
+                period = str(self.period_name)
+                insert_calendar = False
+                # Determine if monthly (YYYY-MM) or yearly (Year_YYYY)
+                if len(period) == 7 and period[4] == '-' and period[:4].isdigit() and period[5:7].isdigit():
+                    insert_calendar = True
+                if period.startswith('Year_'):
+                    insert_calendar = True
+                if insert_calendar:
+                    # Lazy import to avoid circular dependency
+                    from calendar_heatmap import generate_inline_calendar_for_period
+                    snippet = generate_inline_calendar_for_period(
+                        self.start_date,
+                        self.end_date,
+                        files=None,
+                        cell_size=10 if period.startswith('Year_') else 12,
+                        gap=2,
+                        enable_click=True,
+                        id_suffix=period,
+                        weekly_link_prefix_to_weekly='../../weekly/'
+                    )
+                    # Inject snippet right below the nav bar if present, else at top of body
+                    try:
+                        with open(output_file, 'r', encoding='utf-8') as rf:
+                            content = rf.read()
+                        anchor = '<div class="report-nav-bar">'
+                        idx = content.find(anchor)
+                        if idx != -1:
+                            # find closing </div> of nav bar
+                            close_idx = content.find('</div>', idx)
+                            if close_idx != -1:
+                                insertion_point = close_idx + len('</div>')
+                                insertion = f"\n<div style=\"padding:12px 20px;\"><h3 style=\"margin:4px 0 8px; color:#555;\">Calendar</h3>{snippet}</div>\n"
+                                content = content[:insertion_point] + insertion + content[insertion_point:]
+                            else:
+                                # fallback: prepend after <body>
+                                content = content.replace('<body>', f'<body>\n<div style=\"padding:12px 20px;\"><h3 style=\"margin:4px 0 8px; color:#555;\">Calendar</h3>{snippet}</div>\n', 1)
+                        else:
+                            content = content.replace('<body>', f'<body>\n<div style=\"padding:12px 20px;\"><h3 style=\"margin:4px 0 8px; color:#555;\">Calendar</h3>{snippet}</div>\n', 1)
+                        with open(output_file, 'w', encoding='utf-8') as wf:
+                            wf.write(content)
+                    except Exception:
+                        pass
+            except Exception:
+                # Non-fatal if calendar injection fails
+                pass
         else:
             fig.show()
         
